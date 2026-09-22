@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escáner de Código de Barras</title>
-  <!-- Librería de escaneo -->
+  <title>Historial de Compra por SKU</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body {
@@ -15,7 +14,7 @@
       padding: 20px;
     }
     .card {
-      max-width: 450px;
+      max-width: 480px;
       margin: 0 auto;
       background: #ffffff;
       padding: 20px;
@@ -23,75 +22,68 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     h2 { color: #1a73e8; margin-top: 0; }
-    p { color: #5f6368; font-size: 14px; }
     #reader { width: 100%; margin: 15px auto; border-radius: 8px; overflow: hidden; }
-    #status {
+    #resultado {
       margin-top: 15px;
-      padding: 12px;
-      font-size: 15px;
+      padding: 15px;
+      font-size: 16px;
       font-weight: bold;
-      border-radius: 6px;
+      border-radius: 8px;
       background-color: #e8f0fe;
-      color: #1a73e8;
+      color: #174ea6;
       word-break: break-word;
+      line-height: 1.5;
+      text-align: left;
     }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>📷 Escáner de SKU</h2>
-    <p>Apunta con la cámara al código de barras para filtrar en Google Sheets.</p>
+    <h2>📷 Historial de Producto</h2>
+    <p>Apunta la cámara al código de barras para ver los datos de compra.</p>
 
     <div id="reader"></div>
-    <div id="status">Iniciando cámara...</div>
+    <div id="resultado">Esperando escaneo...</div>
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQU3kfPZi6yMyeUpiw0lTv7YTZCsNWeu6xHS0uzXeZKjrwrJtXKD9MJtU5CS_DPuWl7g/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwUMGnsPl0uUouJobEpGjFSklErQKE2bxGWtJnz35RGqZxnnbeWgNezIFJ__rp9-0ygQg/exec";
 
-    let ultimocodigo = "";
-    let congelado = false;
+    let ultimoSku = "";
+    let bloqueado = false;
 
     function onScanSuccess(decodedText) {
-      if (congelado || decodedText === ultimocodigo) return;
+      if (bloqueado || decodedText === ultimoSku) return;
       
-      congelado = true;
-      ultimocodigo = decodedText;
+      bloqueado = true;
+      ultimoSku = decodedText;
       
-      document.getElementById('status').innerText = "⏳ SKU detectado: " + decodedText + ". Enviando a Google Sheets...";
+      document.getElementById('resultado').innerHTML = "⏳ Buscando SKU: <b>" + decodedText + "</b>...";
 
-      // METODO BEACON (Evita el error 'TypeError: Load failed' por completo)
-      const img = new Image();
-      const urlFinal = APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText) + "&t=" + new Date().getTime();
-      
-      img.onload = function() {
-        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " enviado a Google Sheets!";
-        setTimeout(() => { congelado = false; }, 3000);
-      };
-      
-      img.onerror = function() {
-        // Pese a la redireccion de Google, la peticion se ejecuta correctamente en Apps Script
-        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " procesado!";
-        setTimeout(() => { congelado = false; }, 3000);
-      };
-
-      img.src = urlFinal;
+      // Petición al Apps Script para consultar los datos del producto
+      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText))
+        .then(response => response.text())
+        .then(data => {
+          // Formatear la respuesta limpia para mostrarla en pantalla
+          let infoFormateada = data.replace(/\|/g, '<br>•');
+          document.getElementById('resultado').innerHTML = "✅ <b>Historial Encontrado:</b><br><br>• " + infoFormateada;
+          
+          setTimeout(() => { bloqueado = false; }, 4000);
+        })
+        .catch(err => {
+          document.getElementById('resultado').innerText = "❌ Error de consulta: " + err;
+          bloqueado = false;
+        });
     }
 
     window.onload = function() {
-      let html5QrcodeScanner = new Html5QrcodeScanner(
+      let scanner = new Html5QrcodeScanner(
         "reader",
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-        },
+        { fps: 10, qrbox: { width: 250, height: 150 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
         false
       );
-
-      html5QrcodeScanner.render(onScanSuccess, () => {});
-      document.getElementById('status').innerText = "Cámara lista. Enfoca un código de barras.";
+      scanner.render(onScanSuccess, () => {});
     };
   </script>
 
