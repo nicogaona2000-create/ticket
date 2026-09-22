@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Historial de Compra por SKU</title>
+  <title>Escáner de Historial de Compra</title>
+  <!-- Librería de escaneo optimizada -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body {
@@ -11,22 +12,22 @@
       text-align: center;
       background-color: #f4f6f9;
       margin: 0;
-      padding: 20px;
+      padding: 15px;
     }
     .card {
-      max-width: 480px;
+      max-width: 500px;
       margin: 0 auto;
       background: #ffffff;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    h2 { color: #1a73e8; margin-top: 0; }
-    #reader { width: 100%; margin: 15px auto; border-radius: 8px; overflow: hidden; }
+    h2 { color: #1a73e8; margin-top: 0; font-size: 20px; }
+    #reader { width: 100%; margin: 10px auto; border-radius: 8px; overflow: hidden; }
     #resultado {
       margin-top: 15px;
       padding: 15px;
-      font-size: 16px;
+      font-size: 15px;
       border-radius: 8px;
       background-color: #e8f0fe;
       color: #174ea6;
@@ -35,26 +36,46 @@
       text-align: left;
     }
     .badge { font-weight: bold; color: #d93025; }
-    .success { color: #137333; font-weight: bold; }
+    .success { color: #137333; font-weight: bold; font-size: 17px; }
+    .controls { margin-top: 10px; }
+    button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:active { background-color: #1557b0; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>📷 Historial de Producto</h2>
-    <p>Apunta la cámara al código de barras para ver los datos de compra.</p>
+    <h2>📷 Escáner de Tickets de Compra</h2>
+    <p>Apunta al código de barras del producto</p>
 
     <div id="reader"></div>
+    
+    <div class="controls">
+      <button id="btnLinterna" onclick="toggleLinterna()" style="display:none;">💡 Encender Linterna</button>
+      <button onclick="reiniciarEscaneo()">🔄 Esccanear Otro</button>
+    </div>
+
     <div id="resultado">Esperando escaneo...</div>
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNZxlG2vnYEw0jllM_uZzxPAnRc0z3ztI5RmvVZdB2oJB4nVd0TBHAv56bjnXz-hlR5Q/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj4cE6pvsc70b82R_pPY19y0Dhc1weGoHLtflJ5-q2y9wpOGzOJotXU6Q9FmNVjAhg/exec";
 
+    let html5QrCode;
     let ultimoSku = "";
     let bloqueado = false;
+    let trackVideo = null;
+    let linternaEncendida = false;
 
-    // Función callback global requerida para JSONP
     function procesarRespuesta(data) {
       const resDiv = document.getElementById('resultado');
       
@@ -62,16 +83,13 @@
         resDiv.innerHTML = `
           ✅ <span class="success">¡Producto Encontrado!</span><br><br>
           🛒 <b>Tienda:</b> ${data.tienda}<br>
+          📅 <b>Fecha:</b> ${data.fecha}<br>
           📦 <b>Producto:</b> ${data.producto}<br>
-          💰 <b>Costo:</b> $${data.costo}<br>
-          📅 <b>Fecha:</b> ${data.fecha}
+          💰 <b>Costo:</b> $${data.costo}
         `;
       } else {
-        resDiv.innerHTML = `⚠️ <span class="badge">SKU no registrado en la hoja de cálculo.</span>`;
+        resDiv.innerHTML = `⚠️ <span class="badge">El SKU "${ultimoSku}" no está registrado en la hoja de cálculo.</span>`;
       }
-
-      // Desbloquear el escáner después de 4 segundos para permitir otro escaneo
-      setTimeout(() => { bloqueado = false; }, 4000);
     }
 
     function onScanSuccess(decodedText) {
@@ -80,9 +98,9 @@
       bloqueado = true;
       ultimoSku = decodedText;
       
-      document.getElementById('resultado').innerHTML = `⏳ Buscando SKU: <b>${decodedText}</b>...`;
+      document.getElementById('resultado').innerHTML = `⏳ Consultando SKU: <b>${decodedText}</b>...`;
 
-      // Inyección dinámica de script para evitar bloqueos CORS (JSONP)
+      // Inyección JSONP para consultar Google Sheets sin errores CORS
       const oldScript = document.getElementById('jsonpScript');
       if (oldScript) oldScript.remove();
 
@@ -98,13 +116,59 @@
       document.body.appendChild(script);
     }
 
+    function reiniciarEscaneo() {
+      ultimoSku = "";
+      bloqueado = false;
+      document.getElementById('resultado').innerHTML = "Cámara lista. Enfoca un código de barras.";
+    }
+
+    function toggleLinterna() {
+      if (trackVideo) {
+        linternaEncendida = !linternaEncendida;
+        trackVideo.applyConstraints({
+          advanced: [{ torch: linternaEncendida }]
+        }).then(() => {
+          document.getElementById('btnLinterna').innerText = linternaEncendida ? "💡 Apagar Linterna" : "💡 Encender Linterna";
+        }).catch(err => console.log("Linterna no soportada en este dispositivo", err));
+      }
+    }
+
     window.onload = function() {
-      let scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 150 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
-        false
-      );
-      scanner.render(onScanSuccess, () => {});
+      html5QrCode = new Html5Qrcode("reader");
+      
+      const config = { 
+        fps: 20, // Mayor fluidez de lectura por segundo
+        qrbox: { width: 300, height: 120 }, // Área rectangular perfecta para códigos de barras alargados
+        aspectRatio: 1.777778
+      };
+
+      html5QrCode.start(
+        { facingMode: "environment" }, // Usa la cámara trasera por defecto en celulares
+        config,
+        onScanSuccess,
+        (errorMessage) => {
+          // Errores de fotograma ignorados en silencio para no saturar
+        }
+      ).then(() => {
+        // Intentar obtener el stream de video para habilitar la linterna si el dispositivo lo soporta
+        try {
+          let videoTrack = html5QrCode.getRunningTrackCameraCapabilities();
+          if (videoTrack) {
+            trackVideo = html5QrCode.html5QrCodeScanner ? null : null; // se gestiona mediante el stream activo
+          }
+          // Mostrar botón de linterna si la cámara tiene la capacidad
+          const tracks = html5QrCode.ógicaDeStream ? null : document.getElementById('reader').getElementsByTagName('video');
+          if(navigator.mediaDevices) {
+            navigator.mediaDevices.enumerateDevices().then(devices => {
+              if(devices.some(d => d.kind === 'videoinput')) {
+                document.getElementById('btnLinterna').style.display = "inline-block";
+              }
+            });
+          }
+        } catch(e) {}
+      }).catch(err => {
+        document.getElementById('resultado').innerHTML = "❌ Error al iniciar la cámara: " + err;
+      });
     };
   </script>
 
