@@ -4,46 +4,103 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Escáner de Código de Barras</title>
+  <!-- Librería de escaneo de código de barras / QR -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f8f9fa; padding: 20px; }
-    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    #status { font-weight: bold; color: #1a73e8; margin-top: 15px; font-size: 16px; }
-    .btn { background: #1a73e8; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      max-width: 450px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #1a73e8;
+      margin-top: 0;
+    }
+    p {
+      color: #5f6368;
+      font-size: 14px;
+    }
+    #reader {
+      width: 100%;
+      margin: 15px auto;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #status {
+      margin-top: 15px;
+      padding: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 6px;
+      background-color: #e8f0fe;
+      color: #1a73e8;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
 
-  <h2>📷 Escáner de SKU</h2>
-  <p>Enfoca el código de barras para filtrar en Google Sheets</p>
+  <div class="card">
+    <h2>📷 Escáner de SKU</h2>
+    <p>Apunta con la cámara al código de barras para filtrar en tiempo real tu Google Sheet.</p>
 
-  <div id="reader"></div>
-  <div id="status">Esperando cámara...</div>
+    <div id="reader"></div>
+    <div id="status">Iniciando cámara...</div>
+  </div>
 
   <script>
-    // ⚠️ REEMPLAZA ESTA URL CON LA URL DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
+    // URL de tu Web App de Google Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxULoSXEDDHogNnFeH7q2c96PnkQzBlwExxIEl_y0DiJxHxqRRqURO9ReIg_MWzu7yK/exec";
+
+    let html5QrcodeScanner;
 
     function onScanSuccess(decodedText) {
       document.getElementById('status').innerText = "⏳ SKU detectado: " + decodedText + ". Enviando a Google Sheets...";
 
-      // Enviar el SKU a Google Sheets a través de la Web App
-      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText))
-        .then(response => response.text())
-        .then(data => {
-          document.getElementById('status').innerText = "✅ " + data;
-        })
-        .catch(err => {
-          document.getElementById('status').innerText = "❌ Error al enviar a Sheets: " + err;
-        });
+      // Envío mediante fetch con 'no-cors' para omitir restricciones del navegador
+      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText), {
+        method: 'GET',
+        mode: 'no-cors'
+      })
+      .then(() => {
+        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " enviado correctamente!";
+      })
+      .catch(err => {
+        document.getElementById('status').innerText = "❌ Error al enviar: " + err;
+      });
+    }
+
+    function onScanFailure(error) {
+      // Búsqueda continua en silencio
     }
 
     window.onload = function() {
-      let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", { fps: 10, qrbox: { width: 250, height: 150 } }, false
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
+        },
+        /* verbose= */ false
       );
-      html5QrcodeScanner.render(onScanSuccess);
+
+      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+      document.getElementById('status').innerText = "Cámara lista. Enfoca un código de barras.";
     };
   </script>
+
 </body>
 </html>
