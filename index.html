@@ -27,14 +27,15 @@
       margin-top: 15px;
       padding: 15px;
       font-size: 16px;
-      font-weight: bold;
       border-radius: 8px;
       background-color: #e8f0fe;
       color: #174ea6;
       word-break: break-word;
-      line-height: 1.5;
+      line-height: 1.6;
       text-align: left;
     }
+    .badge { font-weight: bold; color: #d93025; }
+    .success { color: #137333; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -48,10 +49,30 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwUMGnsPl0uUouJobEpGjFSklErQKE2bxGWtJnz35RGqZxnnbeWgNezIFJ__rp9-0ygQg/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxcV-wg7MFl1jISOAnB_-EO4WREDzHfZVBChgU98uHlc2btPqV-9sHLTAw3kkQ5QNafhQ/exec";
 
     let ultimoSku = "";
     let bloqueado = false;
+
+    // Función callback global requerida para JSONP
+    function procesarRespuesta(data) {
+      const resDiv = document.getElementById('resultado');
+      
+      if (data.encontrado) {
+        resDiv.innerHTML = `
+          ✅ <span class="success">¡Producto Encontrado!</span><br><br>
+          📦 <b>Producto:</b> ${data.producto}<br>
+          🛒 <b>Tienda:</b> ${data.tienda}<br>
+          💰 <b>Costo:</b> $${data.costo}<br>
+          📅 <b>Fecha:</b> ${data.fecha}
+        `;
+      } else {
+        resDiv.innerHTML = `⚠️ <span class="badge">SKU no registrado en la hoja de cálculo.</span>`;
+      }
+
+      // Desbloquear el escáner después de 4 segundos para permitir otro escaneo
+      setTimeout(() => { bloqueado = false; }, 4000);
+    }
 
     function onScanSuccess(decodedText) {
       if (bloqueado || decodedText === ultimoSku) return;
@@ -59,22 +80,22 @@
       bloqueado = true;
       ultimoSku = decodedText;
       
-      document.getElementById('resultado').innerHTML = "⏳ Buscando SKU: <b>" + decodedText + "</b>...";
+      document.getElementById('resultado').innerHTML = `⏳ Buscando SKU: <b>${decodedText}</b>...`;
 
-      // Petición al Apps Script para consultar los datos del producto
-      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText))
-        .then(response => response.text())
-        .then(data => {
-          // Formatear la respuesta limpia para mostrarla en pantalla
-          let infoFormateada = data.replace(/\|/g, '<br>•');
-          document.getElementById('resultado').innerHTML = "✅ <b>Historial Encontrado:</b><br><br>• " + infoFormateada;
-          
-          setTimeout(() => { bloqueado = false; }, 4000);
-        })
-        .catch(err => {
-          document.getElementById('resultado').innerText = "❌ Error de consulta: " + err;
-          bloqueado = false;
-        });
+      // Inyección dinámica de script para evitar bloqueos CORS (JSONP)
+      const oldScript = document.getElementById('jsonpScript');
+      if (oldScript) oldScript.remove();
+
+      const script = document.createElement('script');
+      script.id = 'jsonpScript';
+      script.src = `${APPS_SCRIPT_URL}?sku=${encodeURIComponent(decodedText)}&callback=procesarRespuesta`;
+      
+      script.onerror = function() {
+        document.getElementById('resultado').innerHTML = `❌ Error de conexión al consultar Google Sheets.`;
+        bloqueado = false;
+      };
+
+      document.body.appendChild(script);
     }
 
     window.onload = function() {
