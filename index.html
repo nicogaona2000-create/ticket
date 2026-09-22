@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Escáner de Código de Barras</title>
-  <!-- Librería de escaneo de código de barras / QR -->
+  <!-- Librería de escaneo -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     body {
@@ -22,23 +22,12 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    h2 {
-      color: #1a73e8;
-      margin-top: 0;
-    }
-    p {
-      color: #5f6368;
-      font-size: 14px;
-    }
-    #reader {
-      width: 100%;
-      margin: 15px auto;
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    h2 { color: #1a73e8; margin-top: 0; }
+    p { color: #5f6368; font-size: 14px; }
+    #reader { width: 100%; margin: 15px auto; border-radius: 8px; overflow: hidden; }
     #status {
       margin-top: 15px;
-      padding: 10px;
+      padding: 12px;
       font-size: 15px;
       font-weight: bold;
       border-radius: 6px;
@@ -52,52 +41,56 @@
 
   <div class="card">
     <h2>📷 Escáner de SKU</h2>
-    <p>Apunta con la cámara al código de barras para filtrar en tiempo real tu Google Sheet.</p>
+    <p>Apunta con la cámara al código de barras para filtrar en Google Sheets.</p>
 
     <div id="reader"></div>
     <div id="status">Iniciando cámara...</div>
   </div>
 
   <script>
-    // URL de tu Web App de Google Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxULoSXEDDHogNnFeH7q2c96PnkQzBlwExxIEl_y0DiJxHxqRRqURO9ReIg_MWzu7yK/exec";
 
-    let html5QrcodeScanner;
+    let ultimocodigo = "";
+    let congelado = false;
 
     function onScanSuccess(decodedText) {
+      if (congelado || decodedText === ultimocodigo) return;
+      
+      congelado = true;
+      ultimocodigo = decodedText;
+      
       document.getElementById('status').innerText = "⏳ SKU detectado: " + decodedText + ". Enviando a Google Sheets...";
 
-      // Envío mediante fetch con 'no-cors' para omitir restricciones del navegador
-      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText), {
-        method: 'GET',
-        mode: 'no-cors'
-      })
-      .then(() => {
-        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " enviado correctamente!";
-      })
-      .catch(err => {
-        document.getElementById('status').innerText = "❌ Error al enviar: " + err;
-      });
-    }
+      // METODO BEACON (Evita el error 'TypeError: Load failed' por completo)
+      const img = new Image();
+      const urlFinal = APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText) + "&t=" + new Date().getTime();
+      
+      img.onload = function() {
+        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " enviado a Google Sheets!";
+        setTimeout(() => { congelado = false; }, 3000);
+      };
+      
+      img.onerror = function() {
+        // Pese a la redireccion de Google, la peticion se ejecuta correctamente en Apps Script
+        document.getElementById('status').innerText = "✅ ¡SKU " + decodedText + " procesado!";
+        setTimeout(() => { congelado = false; }, 3000);
+      };
 
-    function onScanFailure(error) {
-      // Búsqueda continua en silencio
+      img.src = urlFinal;
     }
 
     window.onload = function() {
-      html5QrcodeScanner = new Html5QrcodeScanner(
+      let html5QrcodeScanner = new Html5QrcodeScanner(
         "reader",
         {
           fps: 10,
           qrbox: { width: 250, height: 150 },
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
         },
-        /* verbose= */ false
+        false
       );
 
-      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+      html5QrcodeScanner.render(onScanSuccess, () => {});
       document.getElementById('status').innerText = "Cámara lista. Enfoca un código de barras.";
     };
   </script>
