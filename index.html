@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escáner de Código de Barras</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f8f9fa; padding: 20px; }
+    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    #status { font-weight: bold; color: #1a73e8; margin-top: 15px; font-size: 16px; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h2>📷 Escáner de SKU</h2>
+  <p>Enfoca el código de barras para filtrar en Google Sheets</p>
+
+  <div id="reader"></div>
+  <div id="status">Esperando cámara...</div>
+
+  <script>
+    // ⚠️ REEMPLAZA ESTA URL CON LA URL DE TU APLICACIÓN WEB DE GOOGLE APPS SCRIPT
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/TU_SCRIPT_ID/exec";
+
+    function onScanSuccess(decodedText) {
+      document.getElementById('status').innerText = "⏳ SKU detectado: " + decodedText + ". Enviando a Google Sheets...";
+
+      // Enviar el SKU a Google Sheets a través de la Web App
+      fetch(APPS_SCRIPT_URL + "?sku=" + encodeURIComponent(decodedText))
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('status').innerText = "✅ " + data;
+        })
+        .catch(err => {
+          document.getElementById('status').innerText = "❌ Error al enviar a Sheets: " + err;
+        });
+    }
+
+    window.onload = function() {
+      let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", { fps: 10, qrbox: { width: 250, height: 150 } }, false
+      );
+      html5QrcodeScanner.render(onScanSuccess);
+    };
+  </script>
+</body>
+</html>
