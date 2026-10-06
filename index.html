@@ -151,7 +151,6 @@
   </div>
 
   <script>
-    // URL de tu nueva implementación de Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlp96oarSYZ4Wi2AQc3YmcVXaCPcCYgDQtsHP_s5br94u87apBadd_N01QH38tm3kDsA/exec";
 
     let productosGlobal = [];
@@ -170,7 +169,7 @@
       }
     });
 
-    // 1. CARGAR PRODUCTOS DESDE GOOGLE SHEETS
+    // 1. CARGAR PRODUCTOS CON CONTROL DE TIMEOUT Y REDIRECCIONES
     async function cargarProductos() {
       const contenedor = document.getElementById('vista-total');
       contenedor.innerHTML = `
@@ -180,14 +179,29 @@
         </div>`;
 
       try {
-        const response = await fetch(APPS_SCRIPT_URL);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s máximo
+
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'GET',
+          redirect: 'follow',
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
         productosGlobal = await response.json();
 
         renderizarLista(productosGlobal);
         generarComparador(productosGlobal);
 
       } catch (err) {
-        contenedor.innerHTML = `<div class="p-8 text-center text-red-500 font-medium">Error al cargar datos.<br><button onclick="cargarProductos()" class="mt-2 text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg">Reintentar</button></div>`;
+        console.error("Error al cargar:", err);
+        contenedor.innerHTML = `
+          <div class="p-8 text-center text-red-500 font-medium space-y-2">
+            <p>⚠️ No se pudo conectar a Google Sheets.</p>
+            <p class="text-xs text-gray-500">Verifica que el despliegue en Apps Script esté configurado como "Cualquier persona".</p>
+            <button onclick="cargarProductos()" class="mt-2 text-xs bg-red-500 text-white font-bold px-4 py-2 rounded-xl shadow">Reintentar</button>
+          </div>`;
       }
     }
 
@@ -196,7 +210,7 @@
       const contenedor = document.getElementById('vista-total');
       
       if (!items || items.length === 0) {
-        contenedor.innerHTML = `<div class="p-8 text-center text-gray-400 font-medium">No hay productos registrados aún.</div>`;
+        contenedor.innerHTML = `<div class="p-8 text-center text-gray-400 font-medium">No hay productos registrados aún. Toca (+) para agregar.</div>`;
         document.getElementById('total-general').textContent = "$0.00";
         return;
       }
@@ -318,7 +332,7 @@
       }
     }
 
-    // 6. ADAPTADOR DE URL DE FOTOS (GOOGLE DRIVE & URLs DIRECTAS)
+    // 6. ADAPTADOR DE URL DE FOTOS
     function obtenerUrlImagen(foto) {
       if (!foto) return 'https://via.placeholder.com/100?text=Sin+Foto';
       if (foto.startsWith('http')) {
