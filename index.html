@@ -55,7 +55,6 @@
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
     .foto-preview { width: 100%; height: 120px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 6px; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; color: #888; cursor: pointer; }
 
-    /* ESTILO PARA EL CONTENEDOR DEL MAPA EN EL MODAL */
     .mapa-container { width: 100%; height: 160px; border-radius: 8px; border: 1px solid #ccc; margin-top: 6px; overflow: hidden; }
     .mapa-container iframe { width: 100%; height: 100%; border: 0; }
   
@@ -75,7 +74,6 @@
     
     <!-- VISTA 1: LISTA Y REGISTRO DE PRODUCTOS -->
     <div id="vista-total">
-      <!-- CONTENEDOR SIEMPRE VISIBLE AL DESPLAZARSE (STICKY) -->
       <div class="sticky-header">
         <div class="card flex" style="margin-bottom: 8px;">
           <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;" oninput="filtrarProductos()">
@@ -87,7 +85,6 @@
           <h2 id="total-monto" style="color: #1a73e8; margin:0;">$0.00</h2>
         </div>
 
-        <!-- CONTROLES RÁPIDOS DE SELECCIÓN -->
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
           <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(false)">❌ Desmarcar todos</button>
           <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(true)">✅ Seleccionar todos</button>
@@ -152,7 +149,6 @@
         <label for="p-gps">GPS *</label>
         <input type="text" id="p-gps" placeholder="Obteniendo ubicación..." readonly style="background-color: #eee;">
         
-        <!-- COMPONENTE DEL MAPA INTERACTIVO -->
         <div class="mapa-container" id="mapa-wrapper">
           <iframe id="iframe-mapa" src="about:blank"></iframe>
         </div>
@@ -450,6 +446,7 @@
       cerrarModal();
     }
 
+    /* RENDERIZADO CON ORDENAMIENTO (SELECCIONADOS PRIMERO) */
     function renderizarLista(lista = productos) {
       const contenedor = document.getElementById('lista-productos');
       contenedor.innerHTML = '';
@@ -460,7 +457,10 @@
         return;
       }
 
-      lista.forEach((p) => {
+      // ORDENAR: Los marcados (true) van primero que los desmarcados (false)
+      const listaOrdenada = [...lista].sort((a, b) => (b.seleccion === true ? 1 : 0) - (a.seleccion === true ? 1 : 0));
+
+      listaOrdenada.forEach((p) => {
         const indexReal = productos.findIndex(prod => prod.id === p.id);
         contenedor.innerHTML += `
           <div class="card card-clickable flex">
@@ -470,7 +470,7 @@
               <small>Cant: ${p.cantidad} | Precio: $${p.precio.toFixed(2)}</small>
             </div>
             <div onclick="event.stopPropagation();">
-              <label>
+              <label style="cursor: pointer; font-weight: bold; color: ${p.seleccion ? '#1a73e8' : '#666'};">
                 <input type="checkbox" ${p.seleccion ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
               </label>
             </div>
@@ -483,7 +483,7 @@
 
     function toggleSeleccion(index) {
       productos[index].seleccion = !productos[index].seleccion;
-      actualizarTotal();
+      renderizarLista(); // Vuelve a renderizar para reorganizar los elementos de inmediato
       
       fetch(URL_GOOGLE_SCRIPT, {
         method: 'POST',
@@ -493,12 +493,10 @@
       }).catch(e => console.error(e));
     }
 
-    /* NUEVA FUNCIÓN: CAMBIAR ESTADO DE TODOS LOS PRODUCTOS DE UNA SOLA VEZ */
     function cambiarSeleccionTodos(estado) {
       productos.forEach(p => p.seleccion = estado);
       renderizarLista();
       
-      // Sincronizar en lote o actualizar estado
       productos.forEach(p => {
         fetch(URL_GOOGLE_SCRIPT, {
           method: 'POST',
