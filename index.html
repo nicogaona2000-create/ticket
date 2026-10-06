@@ -22,7 +22,7 @@
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
       <h2 class="font-bold text-gray-800 text-lg mb-3">1. Escanear Código de Barras</h2>
       
-      <!-- Contenedor del Visor -->
+      <!-- Visor de Cámara -->
       <div id="reader" class="overflow-hidden rounded-lg bg-black min-h-[220px]"></div>
 
       <div class="mt-3 flex gap-2">
@@ -103,6 +103,7 @@
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRW35KrTUG0VfCYOeileuaS6SOqgC26mNqkeKfRJs1Rh3iLGgx9W8reTzHDq7gZE2tCw/exec";
 
     let html5QrCode = null;
+    let isTransitioning = false; // Control de bloqueo para transiciones en iOS
     let fotoBase64 = "";
     let userGps = "";
 
@@ -116,72 +117,84 @@
       );
     }
 
-    // 2. Control del Escáner Configurado en HD y formatos específicos
+    // 2. Control del Escáner Protegido contra Errores de Transición en iOS
     async function iniciarEscaner() {
-      document.getElementById('btn-scan-start').classList.add('hidden');
-      document.getElementById('btn-scan-stop').classList.remove('hidden');
+      if (isTransitioning) return;
+      isTransitioning = true;
 
-      if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode("reader");
-      }
-
-      // Definir formatos de códigos de barras comerciales de despensa
-      const formatsSupported = [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128
-      ];
-
-      // Configuración de Alta Definición y cuadro de enfoque rectangular
-      const cameraConstraints = {
-        facingMode: "environment",
-        width: { min: 1280, ideal: 1920 },
-        height: { min: 720, ideal: 1080 }
-      };
-
-      const qrConfig = {
-        fps: 20,
-        qrbox: { width: 280, height: 110 },
-        formatsToSupport: formatsSupported
-      };
-
-      const onScanSuccess = (decodedText) => {
-        document.getElementById('codigo').value = decodedText;
-        detenerEscaner();
-        try {
-          const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
-          audio.play();
-        } catch(e){}
-      };
+      const btnStart = document.getElementById('btn-scan-start');
+      const btnStop = document.getElementById('btn-scan-stop');
+      btnStart.classList.add('hidden');
+      btnStop.classList.remove('hidden');
 
       try {
-        await html5QrCode.start(cameraConstraints, qrConfig, onScanSuccess, () => {});
-      } catch (err) {
-        // Fallback si la cámara no soporta restricciones HD exactas
-        try {
-          await html5QrCode.start({ facingMode: "environment" }, qrConfig, onScanSuccess, () => {});
-        } catch (e) {
-          alert("Error de cámara en iPhone: " + e);
-          detenerEscaner();
+        if (html5QrCode) {
+          if (html5QrCode.isScanning) {
+            await html5QrCode.stop();
+          }
+          await html5QrCode.clear();
         }
+
+        html5QrCode = new Html5Qrcode("reader");
+
+        const formatsSupported = [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128
+        ];
+
+        const qrConfig = {
+          fps: 15,
+          qrbox: { width: 280, height: 110 },
+          formatsToSupport: formatsSupported
+        };
+
+        const onScanSuccess = (decodedText) => {
+          document.getElementById('codigo').value = decodedText;
+          detenerEscaner();
+          try {
+            const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
+            audio.play();
+          } catch(e){}
+        };
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          qrConfig,
+          onScanSuccess,
+          () => {}
+        );
+
+      } catch (err) {
+        console.error("Error al iniciar cámara:", err);
+        // Desbloqueo y restauración si falla
+        isTransitioning = false;
+        detenerEscaner();
+      } finally {
+        isTransitioning = false;
       }
     }
 
-    function detenerEscaner() {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().then(() => {
-          html5QrCode.clear();
-          document.getElementById('btn-scan-start').classList.remove('hidden');
-          document.getElementById('btn-scan-stop').classList.add('hidden');
-        }).catch(() => {
-          document.getElementById('btn-scan-start').classList.remove('hidden');
-          document.getElementById('btn-scan-stop').classList.add('hidden');
-        });
-      } else {
-        document.getElementById('btn-scan-start').classList.remove('hidden');
-        document.getElementById('btn-scan-stop').classList.add('hidden');
+    async function detenerEscaner() {
+      if (isTransitioning) return;
+      isTransitioning = true;
+
+      const btnStart = document.getElementById('btn-scan-start');
+      const btnStop = document.getElementById('btn-scan-stop');
+
+      try {
+        if (html5QrCode && html5QrCode.isScanning) {
+          await html5QrCode.stop();
+          await html5QrCode.clear();
+        }
+      } catch (err) {
+        console.error("Error al detener cámara:", err);
+      } finally {
+        btnStart.classList.remove('hidden');
+        btnStop.classList.add('hidden');
+        isTransitioning = false;
       }
     }
 
