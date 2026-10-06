@@ -9,7 +9,15 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
+    /* PREVENCIÓN DE RECARGA AL DESLIZAR HACIA ABAJO (PULL-TO-REFRESH) */
+    html, body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #800020; 
+      overscroll-behavior-y: contain; /* Bloquea el pull-to-refresh en Chrome y móviles */
+    }
+
     header { background-color: #1a73e8; color: white; padding: 15px; text-align: center; }
     .container { padding: 15px; max-width: 500px; margin: auto; padding-bottom: 80px; }
     
@@ -17,7 +25,7 @@
       position: sticky;
       top: 0;
       z-index: 20;
-      background-color: #f4f4f9;
+      background-color: #800020;
       padding-top: 5px;
       padding-bottom: 5px;
     }
@@ -34,8 +42,31 @@
     nav button.active { color: #1a73e8; border-top: 3px solid #1a73e8; }
     .hidden { display: none !important; }
 
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; overflow-y: auto; }
-    .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+    .modal-overlay { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      background: rgba(0,0,0,0.5); 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      z-index: 100; 
+      overflow-y: auto; 
+      overscroll-behavior: contain;
+    }
+    .modal-content { 
+      background: white; 
+      padding: 20px; 
+      border-radius: 12px; 
+      width: 90%; 
+      max-width: 400px; 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+      max-height: 90vh; 
+      overflow-y: auto; 
+      overscroll-behavior: contain;
+    }
     .modal-content label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; color: #333; }
     .modal-content input[type="text"], 
     .modal-content input[type="number"],
@@ -58,7 +89,7 @@
     .mapa-container { width: 100%; height: 160px; border-radius: 8px; border: 1px solid #ccc; margin-top: 6px; overflow: hidden; }
     .mapa-container iframe { width: 100%; height: 100%; border: 0; }
   
-    #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
+    #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; overscroll-behavior: contain; }
     #reader { width: 320px; max-width: 95%; background: white; border-radius: 8px; overflow: hidden; }
     .scanner-controls { width: 320px; max-width: 95%; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
     .badge-compra { background: #e6f4ea; color: #137333; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
