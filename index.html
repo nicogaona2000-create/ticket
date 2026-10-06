@@ -13,6 +13,8 @@
     header { background-color: #1a73e8; color: white; padding: 15px; text-align: center; }
     .container { padding: 15px; max-width: 500px; margin: auto; padding-bottom: 80px; }
     .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card-clickable { cursor: pointer; transition: background 0.2s; }
+    .card-clickable:hover { background-color: #f0f4f9; }
     .flex { display: flex; justify-content: space-between; align-items: center; }
     
     .btn-floating { position: fixed; bottom: 70px; right: 20px; background-color: #ea4335; color: white; width: 56px; height: 56px; border-radius: 50%; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 10; }
@@ -93,9 +95,11 @@
   <!-- MODAL FORMULARIO DE PRODUCTO -->
   <div id="modal-producto" class="modal-overlay hidden">
     <div class="modal-content">
-      <h3 style="margin-top:0;">Registro de Producto</h3>
+      <h3 style="margin-top:0;" id="modal-titulo">Registro de Producto</h3>
       <form id="form-nuevo-producto" onsubmit="guardarProducto(event)">
         
+        <input type="hidden" id="p-id">
+
         <label for="p-nombre">Producto *</label>
         <input type="text" id="p-nombre" required placeholder="Ej. Jabón Aurrerá 900g">
 
@@ -151,8 +155,8 @@
   </nav>
 
   <script>
-    // URL DE TU DESPLIEGUE EN APPS SCRIPT
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbzfR-QeVO1q15X5CU8xzYULw0oJR8QVZlMLhXPdzTPjWoFRcLd81A6FZjL1z0qCrPgFnw/exec";
+    // NUEVA URL DEL DESPLIEGUE EN APPS SCRIPT
+    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbw5whpSlvwqE8kGI6pF1UzW4tmgwMg9re9sd2jrBKN6KekyHBrVHeCsDqRMWjyR4R92Bg/exec";
 
     let productos = [];
     let fotoDataUrl = "";
@@ -163,7 +167,6 @@
       cargarProductosDesdeSheets();
     });
 
-    /* OBTENER DATOS EXISTENTES DESDE GOOGLE SHEETS */
     async function cargarProductosDesdeSheets() {
       const contenedor = document.getElementById('lista-productos');
       contenedor.innerHTML = '<p style="text-align:center; color:#777;">Cargando productos de Google Sheets...</p>';
@@ -287,28 +290,51 @@
       renderizarLista(filtrados);
     }
 
-    /* MODAL Y GUARDADO CON ENVÍO A GOOGLE SHEETS */
-    function abrirModal() {
+    /* MODAL Y EDICIÓN */
+    function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
-      const ahora = new Date();
-      ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
-      document.getElementById('p-fecha').value = ahora.toISOString().slice(0, 16);
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const lat = pos.coords.latitude.toFixed(6);
-            const lng = pos.coords.longitude.toFixed(6);
-            document.getElementById('p-gps').value = `${lat}, ${lng}`;
-          },
-          () => { document.getElementById('p-gps').value = "Ubicación no disponible"; }
-        );
+      if (idProducto) {
+        // MODO EDICIÓN
+        const p = productos.find(prod => prod.id == idProducto);
+        if (p) {
+          document.getElementById('modal-titulo').innerText = "Editar Producto";
+          document.getElementById('p-id').value = p.id;
+          document.getElementById('p-nombre').value = p.nombre;
+          document.getElementById('p-codigo').value = p.codigo;
+          document.getElementById('p-cantidad').value = p.cantidad;
+          document.getElementById('p-precio').value = p.precio;
+          document.getElementById('p-seleccion').checked = p.seleccion;
+          document.getElementById('p-fecha').value = p.fecha || "";
+          document.getElementById('p-gps').value = p.gps || "";
+        }
+      } else {
+        // MODO NUEVO
+        document.getElementById('modal-titulo').innerText = "Registro de Producto";
+        document.getElementById('form-nuevo-producto').reset();
+        document.getElementById('p-id').value = "";
+        
+        const ahora = new Date();
+        ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
+        document.getElementById('p-fecha').value = ahora.toISOString().slice(0, 16);
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude.toFixed(6);
+              const lng = pos.coords.longitude.toFixed(6);
+              document.getElementById('p-gps').value = `${lat}, ${lng}`;
+            },
+            () => { document.getElementById('p-gps').value = "Ubicación no disponible"; }
+          );
+        }
       }
     }
 
     function cerrarModal() {
       document.getElementById('modal-producto').classList.add('hidden');
       document.getElementById('form-nuevo-producto').reset();
+      document.getElementById('p-id').value = "";
       const previewBox = document.getElementById('preview-box');
       previewBox.style.backgroundImage = 'none';
       previewBox.innerText = '📷 Toca para tomar/elegir foto';
@@ -335,11 +361,13 @@
       event.preventDefault();
 
       const btnSubmit = document.getElementById('btn-submit');
-      btnSubmit.innerText = "Guardando en Google Sheets...";
+      btnSubmit.innerText = "Sincronizando con Google Sheets...";
       btnSubmit.disabled = true;
 
-      const nuevo = {
-        id: Date.now(),
+      const idExistente = document.getElementById('p-id').value;
+
+      const productoObj = {
+        id: idExistente ? parseInt(idExistente) : Date.now(),
         nombre: document.getElementById('p-nombre').value,
         codigo: document.getElementById('p-codigo').value,
         cantidad: parseFloat(document.getElementById('p-cantidad').value) || 1,
@@ -349,17 +377,23 @@
         gps: document.getElementById('p-gps').value
       };
 
-      // Agregar a la lista local de inmediato
-      productos.push(nuevo);
+      // Actualizar localmente
+      if (idExistente) {
+        const index = productos.findIndex(p => p.id == idExistente);
+        if (index !== -1) productos[index] = productoObj;
+      } else {
+        productos.push(productoObj);
+      }
+
       renderizarLista();
 
-      // Enviar a Google Sheets
+      // Sincronizar en Google Sheets
       try {
         await fetch(URL_GOOGLE_SCRIPT, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(nuevo)
+          body: JSON.stringify(productoObj)
         });
       } catch (e) {
         console.error("Error al enviar a Google Sheets:", e);
@@ -381,13 +415,13 @@
       lista.forEach((p) => {
         const indexReal = productos.findIndex(prod => prod.id === p.id);
         contenedor.innerHTML += `
-          <div class="card flex">
-            <div>
+          <div class="card card-clickable flex">
+            <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
               <strong>${p.nombre}</strong><br>
               <small>Código: ${p.codigo}</small><br>
               <small>Cant: ${p.cantidad} | Precio: $${p.precio.toFixed(2)}</small>
             </div>
-            <div>
+            <div onclick="event.stopPropagation();">
               <label>
                 <input type="checkbox" ${p.seleccion ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
               </label>
@@ -402,6 +436,14 @@
     function toggleSeleccion(index) {
       productos[index].seleccion = !productos[index].seleccion;
       actualizarTotal();
+      
+      // Enviar actualización de la casilla 'Comprar' a Google Sheets
+      fetch(URL_GOOGLE_SCRIPT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productos[index])
+      }).catch(e => console.error(e));
     }
 
     function actualizarTotal() {
