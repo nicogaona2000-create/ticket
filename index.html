@@ -12,6 +12,17 @@
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
     header { background-color: #1a73e8; color: white; padding: 15px; text-align: center; }
     .container { padding: 15px; max-width: 500px; margin: auto; padding-bottom: 80px; }
+    
+    /* SECCIÓN FIJA / STICKY EN LA PARTE SUPERIOR */
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background-color: #f4f4f9;
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
+
     .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .card-clickable { cursor: pointer; transition: background 0.2s; }
     .card-clickable:hover { background-color: #f0f4f9; }
@@ -41,6 +52,10 @@
     
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
     .foto-preview { width: 100%; height: 120px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 6px; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; color: #888; cursor: pointer; }
+
+    /* ESTILO PARA EL CONTENEDOR DEL MAPA EN EL MODAL */
+    .mapa-container { width: 100%; height: 160px; border-radius: 8px; border: 1px solid #ccc; margin-top: 6px; overflow: hidden; }
+    .mapa-container iframe { width: 100%; height: 100%; border: 0; }
   
     #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
     #reader { width: 320px; max-width: 95%; background: white; border-radius: 8px; overflow: hidden; }
@@ -58,14 +73,17 @@
     
     <!-- VISTA 1: LISTA Y REGISTRO DE PRODUCTOS -->
     <div id="vista-total">
-      <div class="card flex">
-        <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;" oninput="filtrarProductos()">
-        <button onclick="abrirEscaner('buscar')" style="padding: 8px; cursor: pointer;">🔍/📷</button>
-      </div>
+      <!-- CONTENEDOR SIEMPRE VISIBLE AL DESPLAZARSE (STICKY) -->
+      <div class="sticky-header">
+        <div class="card flex" style="margin-bottom: 8px;">
+          <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;" oninput="filtrarProductos()">
+          <button onclick="abrirEscaner('buscar')" style="padding: 8px; cursor: pointer;">🔍/📷</button>
+        </div>
 
-      <div class="card flex" style="background-color: #e8f0fe;">
-        <h3>Total Seleccionado:</h3>
-        <h2 id="total-monto" style="color: #1a73e8;">$0.00</h2>
+        <div class="card flex" style="background-color: #e8f0fe; margin-bottom: 8px;">
+          <h3 style="margin:0;">Total Seleccionado:</h3>
+          <h2 id="total-monto" style="color: #1a73e8; margin:0;">$0.00</h2>
+        </div>
       </div>
 
       <div id="lista-productos"></div>
@@ -125,6 +143,11 @@
 
         <label for="p-gps">GPS *</label>
         <input type="text" id="p-gps" placeholder="Obteniendo ubicación..." readonly style="background-color: #eee;">
+        
+        <!-- COMPONENTE DEL MAPA INTERACTIVO -->
+        <div class="mapa-container" id="mapa-wrapper">
+          <iframe id="iframe-mapa" src="about:blank"></iframe>
+        </div>
 
         <label for="p-foto">Foto *</label>
         <input type="file" id="p-foto" accept="image/*" capture="environment" style="display:none;" onchange="previewFoto(event)">
@@ -155,7 +178,6 @@
   </nav>
 
   <script>
-    // NUEVA URL DEL DESPLIEGUE EN APPS SCRIPT
     const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbw5whpSlvwqE8kGI6pF1UzW4tmgwMg9re9sd2jrBKN6KekyHBrVHeCsDqRMWjyR4R92Bg/exec";
 
     let productos = [];
@@ -290,6 +312,17 @@
       renderizarLista(filtrados);
     }
 
+    /* FUNCIÓN PARA RENDERIZAR EL MAPA DE GOOGLE EN EL IFRAME */
+    function renderizarMapa(coordenadas) {
+      const iframe = document.getElementById('iframe-mapa');
+      if (coordenadas && coordenadas.includes(',')) {
+        const coordsLimpias = coordenadas.trim();
+        iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(coordsLimpias)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+      } else {
+        iframe.src = "about:blank";
+      }
+    }
+
     /* MODAL Y EDICIÓN */
     function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
@@ -307,12 +340,16 @@
           document.getElementById('p-seleccion').checked = p.seleccion;
           document.getElementById('p-fecha').value = p.fecha || "";
           document.getElementById('p-gps').value = p.gps || "";
+          
+          // Cargar el mapa con las coordenadas del producto
+          renderizarMapa(p.gps);
         }
       } else {
         // MODO NUEVO
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
         document.getElementById('form-nuevo-producto').reset();
         document.getElementById('p-id').value = "";
+        renderizarMapa("");
         
         const ahora = new Date();
         ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
@@ -323,7 +360,9 @@
             (pos) => {
               const lat = pos.coords.latitude.toFixed(6);
               const lng = pos.coords.longitude.toFixed(6);
-              document.getElementById('p-gps').value = `${lat}, ${lng}`;
+              const coords = `${lat}, ${lng}`;
+              document.getElementById('p-gps').value = coords;
+              renderizarMapa(coords);
             },
             () => { document.getElementById('p-gps').value = "Ubicación no disponible"; }
           );
@@ -335,6 +374,8 @@
       document.getElementById('modal-producto').classList.add('hidden');
       document.getElementById('form-nuevo-producto').reset();
       document.getElementById('p-id').value = "";
+      renderizarMapa("");
+      
       const previewBox = document.getElementById('preview-box');
       previewBox.style.backgroundImage = 'none';
       previewBox.innerText = '📷 Toca para tomar/elegir foto';
@@ -437,7 +478,7 @@
       productos[index].seleccion = !productos[index].seleccion;
       actualizarTotal();
       
-      // Enviar actualización de la casilla 'Comprar' a Google Sheets
+      // Enviar actualización a Google Sheets
       fetch(URL_GOOGLE_SCRIPT, {
         method: 'POST',
         mode: 'no-cors',
