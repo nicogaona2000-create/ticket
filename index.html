@@ -267,7 +267,7 @@
         filtrarProductos();
       } else if (vista === 'comparador') {
         document.getElementById('vista-comparador').classList.remove('hidden');
-        document.getElementById('tab-comparador').classList.add('active');
+        document.getElementById('tab-comparador').classList.active;
       } else if (vista === 'historico') {
         document.getElementById('vista-historico').classList.remove('hidden');
         document.getElementById('tab-historico').classList.add('active');
@@ -311,13 +311,19 @@
       listaOrdenada.forEach((p) => {
         const indexReal = productos.findIndex(prod => prod.id === p.id);
         const esSeleccionado = p.seleccion === true;
+        
+        // Generar enlace a Google Maps si existen coordenadas válidas
+        const mapUrl = p.gps && String(p.gps).includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(p.gps)}` : null;
 
         contenedor.innerHTML += `
           <div class="card card-clickable flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
             <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
               <strong>${p.producto || p.nombre}</strong><br>
               <small>Código: ${p.codigo}</small><br>
-              <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio || 0).toFixed(2)}</small>
+              <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio || 0).toFixed(2)}</small><br>
+              <small style="color: #666;">Ubicación: ${p.gps || 'Sin GPS'} 
+                ${mapUrl ? `<a href="${mapUrl}" target="_blank" onclick="event.stopPropagation();" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[📍 Ver Mapa]</a>` : ''}
+              </small>
             </div>
             <div onclick="event.stopPropagation();">
               <label style="cursor: pointer; font-weight: bold; color: ${esSeleccionado ? '#1a73e8' : '#666'};">
@@ -358,7 +364,7 @@
               <strong>Cantidad:</strong> ${h.cantidad} | <strong>Precio Unitario:</strong> $${parseFloat(h.precio || 0).toFixed(2)}<br>
               <strong>Total pagado:</strong> <span style="color:#1a73e8; font-weight:bold;">$${totalCompra}</span><br>
               <strong>Ubicación:</strong> ${h.gps || 'Sin GPS'} 
-              ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[Ver Mapa 📍]</a>` : ''}
+              ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[ Ver Mapa 📍]</a>` : ''}
             </div>
           </div>
         `;
@@ -436,8 +442,7 @@
       try {
         await fetch(URL_GOOGLE_SCRIPT, {
           method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: "registrarCompra",
             productos: seleccionados,
@@ -521,7 +526,6 @@
       document.getElementById('modal-producto').classList.remove('hidden');
 
       if (idProducto) {
-        // Modo Edición: Se cargan los datos existentes del producto
         const p = productos.find(prod => prod.id == idProducto);
         if (p) {
           document.getElementById('modal-titulo').innerText = "Editar Producto";
@@ -535,23 +539,19 @@
           document.getElementById('p-gps').value = p.gps || "";
         }
       } else {
-        // Modo Nuevo Producto (Al presionar el botón +)
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
         document.getElementById('form-nuevo-producto').reset();
         document.getElementById('p-id').value = "";
         
-        // 1. Asignar la fecha y hora actual inmediatamente
         const ahora = new Date();
         ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
         document.getElementById('p-fecha').value = ahora.toISOString().slice(0, 16);
 
-        // 2. OBTENER LA UBICACIÓN GPS EN ESTE PRECISO MOMENTO
         document.getElementById('p-gps').value = "Obteniendo ubicación...";
         
         if ("geolocation" in navigator) {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              // Éxito: Se escriben las coordenadas de donde estabas al tocar el botón +
               const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
               document.getElementById('p-gps').value = coords;
             },
@@ -599,10 +599,10 @@
       };
 
       try {
+        // Se cambió el Content-Type a text/plain para evitar bloqueos CORS en Apps Script
         await fetch(URL_GOOGLE_SCRIPT, {
           method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(productoObj)
         });
 
