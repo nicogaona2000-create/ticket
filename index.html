@@ -49,6 +49,8 @@
     .btn-guardar { width: 100%; padding: 10px; background-color: #ea4335; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-cancelar { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
     .btn-secundario { width: 100%; padding: 8px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; margin-top: 8px; cursor: pointer; }
+    .btn-accion-rapida { background-color: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+    .btn-accion-rapida:hover { background-color: #e8eaed; }
     
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
     .foto-preview { width: 100%; height: 120px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 6px; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; color: #888; cursor: pointer; }
@@ -83,6 +85,12 @@
         <div class="card flex" style="background-color: #e8f0fe; margin-bottom: 8px;">
           <h3 style="margin:0;">Total Seleccionado:</h3>
           <h2 id="total-monto" style="color: #1a73e8; margin:0;">$0.00</h2>
+        </div>
+
+        <!-- CONTROLES RÁPIDOS DE SELECCIÓN -->
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(false)">❌ Desmarcar todos</button>
+          <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(true)">✅ Seleccionar todos</button>
         </div>
       </div>
 
@@ -195,7 +203,14 @@
 
       try {
         const respuesta = await fetch(URL_GOOGLE_SCRIPT);
-        const resultado = await respuesta.json();
+        const textoRespuesta = await respuesta.text();
+
+        if (textoRespuesta.trim().startsWith("<")) {
+          contenedor.innerHTML = '<p style="text-align:center; color:red;">Error de acceso al Script. Verifica los permisos.</p>';
+          return;
+        }
+
+        const resultado = JSON.parse(textoRespuesta);
 
         if (resultado.result === "success") {
           productos = resultado.data;
@@ -312,7 +327,6 @@
       renderizarLista(filtrados);
     }
 
-    /* FUNCIÓN PARA RENDERIZAR EL MAPA DE GOOGLE EN EL IFRAME */
     function renderizarMapa(coordenadas) {
       const iframe = document.getElementById('iframe-mapa');
       if (coordenadas && coordenadas.includes(',')) {
@@ -323,12 +337,10 @@
       }
     }
 
-    /* MODAL Y EDICIÓN */
     function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
 
       if (idProducto) {
-        // MODO EDICIÓN
         const p = productos.find(prod => prod.id == idProducto);
         if (p) {
           document.getElementById('modal-titulo').innerText = "Editar Producto";
@@ -340,12 +352,9 @@
           document.getElementById('p-seleccion').checked = p.seleccion;
           document.getElementById('p-fecha').value = p.fecha || "";
           document.getElementById('p-gps').value = p.gps || "";
-          
-          // Cargar el mapa con las coordenadas del producto
           renderizarMapa(p.gps);
         }
       } else {
-        // MODO NUEVO
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
         document.getElementById('form-nuevo-producto').reset();
         document.getElementById('p-id').value = "";
@@ -418,7 +427,6 @@
         gps: document.getElementById('p-gps').value
       };
 
-      // Actualizar localmente
       if (idExistente) {
         const index = productos.findIndex(p => p.id == idExistente);
         if (index !== -1) productos[index] = productoObj;
@@ -428,7 +436,6 @@
 
       renderizarLista();
 
-      // Sincronizar en Google Sheets
       try {
         await fetch(URL_GOOGLE_SCRIPT, {
           method: 'POST',
@@ -478,13 +485,28 @@
       productos[index].seleccion = !productos[index].seleccion;
       actualizarTotal();
       
-      // Enviar actualización a Google Sheets
       fetch(URL_GOOGLE_SCRIPT, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productos[index])
       }).catch(e => console.error(e));
+    }
+
+    /* NUEVA FUNCIÓN: CAMBIAR ESTADO DE TODOS LOS PRODUCTOS DE UNA SOLA VEZ */
+    function cambiarSeleccionTodos(estado) {
+      productos.forEach(p => p.seleccion = estado);
+      renderizarLista();
+      
+      // Sincronizar en lote o actualizar estado
+      productos.forEach(p => {
+        fetch(URL_GOOGLE_SCRIPT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(p)
+        }).catch(e => console.error(e));
+      });
     }
 
     function actualizarTotal() {
