@@ -8,8 +8,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Librería de Escáner de Código de Barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <!-- Motor de OCR Tesseract.js para extraer texto de la foto -->
-  <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
@@ -24,7 +22,8 @@
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
       <h2 class="font-bold text-gray-800 text-lg mb-3">1. Escanear Código de Barras</h2>
       
-      <div id="reader" class="overflow-hidden rounded-lg bg-black min-h-[200px]"></div>
+      <!-- Visor de Cámara -->
+      <div id="reader" class="overflow-hidden rounded-lg bg-black min-h-[220px]"></div>
 
       <div class="mt-3 flex gap-2">
         <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-3 rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
@@ -41,24 +40,19 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 2: EVIDENCIA EN FOTO Y EXTRACCIÓN OCR -->
+    <!-- SECCIÓN 2: EVIDENCIA EN FOTO -->
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-      <h2 class="font-bold text-gray-800 text-lg mb-3">2. Foto de Evidencia (OCR)</h2>
+      <h2 class="font-bold text-gray-800 text-lg mb-3">2. Foto de Evidencia</h2>
       
       <label class="block w-full text-center bg-gray-50 border-2 border-dashed border-blue-400 p-4 rounded-xl cursor-pointer hover:bg-blue-50 transition">
         <span class="text-sm font-medium text-blue-600">📸 Tomar Foto del Producto / Ticket</span>
-        <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="procesarFotoConOCR(event)">
+        <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="previsualizarFoto(event)">
       </label>
-
-      <!-- Estado del procesamiento OCR -->
-      <div id="ocr-status" class="hidden mt-2 p-2 bg-yellow-50 text-yellow-800 text-xs rounded-lg text-center font-medium animate-pulse">
-        🔍 Analizando texto en la foto...
-      </div>
 
       <!-- Previsualización -->
       <div id="preview-container" class="mt-3 hidden text-center">
         <img id="foto-preview" class="max-h-48 mx-auto rounded-lg shadow-sm border" src="" alt="Evidencia">
-        <span class="text-xs text-green-600 font-medium block mt-1">✓ Foto capturada y procesada</span>
+        <span class="text-xs text-green-600 font-medium block mt-1">✓ Foto capturada</span>
       </div>
     </div>
 
@@ -67,7 +61,7 @@
       <h2 class="font-bold text-gray-800 text-lg">3. Datos de Compra</h2>
 
       <div>
-        <label class="text-xs font-semibold text-gray-600">Nombre del Producto (Puedes editarlo) *</label>
+        <label class="text-xs font-semibold text-gray-600">Nombre del Producto *</label>
         <input type="text" id="producto" placeholder="Ej: Aceite Nutrioli 946ml" class="w-full mt-1 p-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
       </div>
 
@@ -106,7 +100,6 @@
   </main>
 
   <script>
-    // URL de tu nueva implementación de Google Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRW35KrTUG0VfCYOeileuaS6SOqgC26mNqkeKfRJs1Rh3iLGgx9W8reTzHDq7gZE2tCw/exec";
 
     let html5QrCode = null;
@@ -123,7 +116,7 @@
       );
     }
 
-    // 2. Control del Escáner de Código de Barras
+    // 2. Escáner de Código de Barras (Ligero y fluido)
     async function iniciarEscaner() {
       document.getElementById('btn-scan-start').classList.add('hidden');
       document.getElementById('btn-scan-stop').classList.remove('hidden');
@@ -132,20 +125,9 @@
         html5QrCode = new Html5Qrcode("reader");
       }
 
-      const formatsSupported = [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ];
-
       const qrConfig = {
         fps: 15,
-        qrbox: { width: 280, height: 120 },
-        formatsToSupport: formatsSupported
+        qrbox: { width: 280, height: 120 }
       };
 
       const onScanSuccess = (decodedText) => {
@@ -163,7 +145,7 @@
         try {
           await html5QrCode.start({ facingMode: "user" }, qrConfig, onScanSuccess, () => {});
         } catch (e) {
-          alert("Error de cámara: " + e);
+          alert("Asegúrate de permitir el acceso a la cámara en Safari.");
           detenerEscaner();
         }
       }
@@ -185,55 +167,21 @@
       }
     }
 
-    // 3. Procesar foto capturada y extraer texto mediante Tesseract OCR
-    async function procesarFotoConOCR(event) {
+    // 3. Previsualizar foto de evidencia capturada
+    function previsualizarFoto(event) {
       const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        fotoBase64 = e.target.result;
-        document.getElementById('foto-preview').src = fotoBase64;
-        document.getElementById('preview-container').classList.remove('hidden');
-
-        // Mostrar indicador de carga OCR
-        const ocrStatus = document.getElementById('ocr-status');
-        ocrStatus.classList.remove('hidden');
-        ocrStatus.textContent = "🔍 Analizando texto de la foto...";
-
-        try {
-          // Reconocimiento de texto OCR
-          const result = await Tesseract.recognize(fotoBase64, 'spa', {
-            logger: m => {
-              if (m.status === 'recognizing text') {
-                ocrStatus.textContent = `🔍 Leyendo texto... ${Math.round(m.progress * 100)}%`;
-              }
-            }
-          });
-
-          const textoLimpio = result.data.text
-            .split('\n')
-            .map(linea => linea.trim())
-            .filter(linea => linea.length > 3)[0] || "";
-
-          if (textoLimpio && !document.getElementById('producto').value) {
-            document.getElementById('producto').value = textoLimpio;
-            ocrStatus.textContent = "✨ Nombre sugerido extraído de la foto";
-          } else {
-            ocrStatus.textContent = "✓ Foto lista";
-          }
-
-        } catch (err) {
-          console.log("OCR Error:", err);
-          ocrStatus.textContent = "✓ Foto capturada (edita el nombre si es necesario)";
-        } finally {
-          setTimeout(() => ocrStatus.classList.add('hidden'), 3000);
-        }
-      };
-      reader.readAsDataURL(file);
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          fotoBase64 = e.target.result;
+          document.getElementById('foto-preview').src = fotoBase64;
+          document.getElementById('preview-container').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
     }
 
-    // 4. Cálculo de Total
+    // 4. Cálculo en tiempo real
     function calcularTotal() {
       const cant = parseFloat(document.getElementById('cantidad').value) || 0;
       const prec = parseFloat(document.getElementById('precio').value) || 0;
@@ -241,7 +189,7 @@
       document.getElementById('total-pagar').textContent = `$${total.toFixed(2)}`;
     }
 
-    // 5. Guardar Registro
+    // 5. Guardar en Google Sheets (Despensa GT)
     async function guardarRegistro() {
       const producto = document.getElementById('producto').value.trim();
       const precio = document.getElementById('precio').value;
@@ -261,4 +209,40 @@
         codigoBarras: document.getElementById('codigo').value,
         cantidad: parseFloat(cantidad),
         precioUnitario: parseFloat(precio),
-        agregarACu
+        agregarACuenta: document.getElementById('seleccion').checked,
+        gpsLocation: userGps,
+        fotoBase64: fotoBase64
+      };
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        alert("✅ Producto guardado correctamente en tu hoja Despensa GT");
+        limpiarFormulario();
+
+      } catch (error) {
+        alert("❌ Error al guardar: " + error.message);
+      } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = "💾 Guardar en Despensa GT";
+      }
+    }
+
+    function limpiarFormulario() {
+      document.getElementById('codigo').value = '';
+      document.getElementById('producto').value = '';
+      document.getElementById('cantidad').value = '1';
+      document.getElementById('precio').value = '';
+      document.getElementById('foto-input').value = '';
+      document.getElementById('preview-container').classList.add('hidden');
+      document.getElementById('total-pagar').textContent = '$0.00';
+      fotoBase64 = '';
+    }
+  </script>
+</body>
+</html>
