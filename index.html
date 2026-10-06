@@ -2,477 +2,130 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Control de Despensa GT</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Iconos -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Librería de Escáner -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DespensaGT - Dashboard</title>
+  <!-- Estilos básicos para que parezca app móvil -->
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
+    header { background-color: #1a73e8; color: white; padding: 15px; text-align: center; }
+    .container { padding: 15px; max-width: 500px; margin: auto; }
+    .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .flex { display: flex; justify-content: space-between; align-items: center; }
+    .btn-floating { position: fixed; bottom: 70px; right: 20px; background-color: #ea4335; color: white; width: 56px; height: 56px; border-radius: 50%; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+    nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ccc; }
+    nav button { flex: 1; padding: 12px; border: none; background: transparent; font-weight: bold; cursor: pointer; }
+    nav button.active { color: #ea4335; border-top: 3px solid #ea4335; }
+    .hidden { display: none; }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen pb-24 text-gray-800">
+<body>
 
-  <!-- BARRA SUPERIOR -->
-  <header class="bg-white px-4 py-3 border-b sticky top-0 z-30 shadow-sm space-y-2">
-    <div class="flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <i class="fa-solid fa-bars text-xl text-gray-600 cursor-pointer"></i>
-        <h1 class="text-xl font-bold text-gray-800">Total</h1>
-      </div>
-      <div class="flex items-center gap-4 text-gray-600">
-        <!-- BÚSQUEDA -->
-        <i onclick="toggleBusqueda()" class="fa-solid fa-magnifying-glass text-lg cursor-pointer hover:text-red-500"></i>
-        <i class="fa-regular fa-square-check text-lg cursor-pointer"></i>
-        <i onclick="cargarProductosPrivado()" class="fa-solid fa-rotate-right text-lg cursor-pointer hover:rotate-180 transition-transform"></i>
-      </div>
-    </div>
-
-    <!-- CAJA DE BÚSQUEDA -->
-    <div id="caja-busqueda" class="hidden pt-1 pb-1">
-      <input type="text" id="input-search" oninput="filtrarProductos()" placeholder="Buscar producto por nombre..." class="w-full p-2 border rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500">
-    </div>
+  <!-- Encabezado -->
+  <header>
+    <h1>DespensaGT</h1>
   </header>
 
-  <!-- SUBHEADER TOTAL -->
-  <div class="bg-gray-50 px-4 py-2 border-b flex justify-between items-center text-sm font-semibold">
-    <span class="text-gray-500">Y</span>
-    <span id="total-general" class="bg-gray-200 px-3 py-0.5 rounded text-gray-700 font-bold">$0.00</span>
+  <div class="container">
+    
+    <!-- VISTA 1: LISTA Y REGISTRO DE PRODUCTOS (Foto 1) -->
+    <div id="vista-total">
+      <!-- Barra de Búsqueda y Escáner (Foto 3) -->
+      <div class="card flex">
+        <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;">
+        <button onclick="alert('Aquí activaremos la cámara')" style="padding: 8px;">🔍/📷</button>
+      </div>
+
+      <!-- Resumen del Total -->
+      <div class="card flex" style="background-color: #e8f0fe;">
+        <h3>Total Seleccionado:</h3>
+        <h2 id="total-monto">$0.00</h2>
+      </div>
+
+      <!-- Lista de Productos Agregados (Foto 1 y 4) -->
+      <div id="lista-productos">
+        <div class="card flex">
+          <div>
+            <strong>Almohadillas de algodón 100pz</strong><br>
+            <small>Cant: 1 | Precio: $10.00</small>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" checked> Comprar
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón Flotante para Agregar (+) (Foto 2) -->
+      <button class="btn-floating" onclick="mostrarFormulario()">+</button>
+    </div>
+
+    <!-- VISTA 2: COMPARADOR DE PRECIOS (Foto 5) -->
+    <div id="vista-comparador" class="hidden">
+      <h2>Comparador de Precios</h2>
+      <div class="card">
+        <h3>Producto 1</h3>
+        <input type="number" id="g1" placeholder="Gramos / Ml" style="width: 100%; margin-bottom: 8px; padding: 6px;">
+        <input type="number" id="p1" placeholder="Precio ($)" style="width: 100%; padding: 6px;">
+      </div>
+      <div class="card">
+        <h3>Producto 2</h3>
+        <input type="number" id="g2" placeholder="Gramos / Ml" style="width: 100%; margin-bottom: 8px; padding: 6px;">
+        <input type="number" id="p2" placeholder="Precio ($)" style="width: 100%; padding: 6px;">
+      </div>
+      <button style="width: 100%; padding: 10px; background-color: #1a73e8; color: white; border: none; border-radius: 5px;" onclick="comparar()">Calcular cuál conviene</button>
+      <div id="resultado-comparador" style="margin-top: 15px; font-weight: bold; text-align: center;"></div>
+    </div>
+
   </div>
 
-  <!-- VISTA 1: LISTA TOTAL DE PRODUCTOS -->
-  <main id="vista-total" class="max-w-md mx-auto divide-y divide-gray-200 bg-white shadow-sm">
-    <div class="p-8 text-center text-gray-400 font-medium">
-      <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-      <p>Cargando lista de despensa...</p>
-    </div>
-  </main>
-
-  <!-- VISTA 2: COMPARADOR -->
-  <main id="vista-comparador" class="max-w-md mx-auto p-4 bg-white shadow-sm hidden space-y-4">
-    <h2 class="text-lg font-bold text-gray-800 border-b pb-2">Comparador de Precios</h2>
-    <p class="text-xs text-gray-500">Historial de precios agrupados por producto.</p>
-    <div id="contenido-comparador" class="space-y-3">
-      <p class="text-center text-gray-400 text-sm py-6">Cargando datos del comparador...</p>
-    </div>
-  </main>
-
-  <!-- BOTÓN FLOTANTE (+) ROJO -->
-  <button onclick="abrirModalNuevo()" class="fixed bottom-20 right-5 bg-red-500 hover:bg-red-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl z-40 active:scale-95 transition">
-    <i class="fa-solid fa-plus"></i>
-  </button>
-
-  <!-- NAVEGACIÓN INFERIOR (TOTAL / COMPARADOR) -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex text-center z-30 shadow-lg">
-    <button id="tab-total" onclick="cambiarPestana('total')" class="flex-1 py-2 text-red-500 border-t-2 border-red-500 font-bold flex flex-col items-center">
-      <i class="fa-solid fa-user-graduate text-lg"></i>
-      <span class="text-xs">Total</span>
-    </button>
-    <button id="tab-comparador" onclick="cambiarPestana('comparador')" class="flex-1 py-2 text-gray-500 flex flex-col items-center hover:text-red-500">
-      <i class="fa-solid fa-drafting-compass text-lg"></i>
-      <span class="text-xs">Comparador</span>
-    </button>
+  <!-- Barra de Navegación Inferior -->
+  <nav>
+    <button id="tab-total" class="active" onclick="cambiarVista('total')">Total</button>
+    <button id="tab-comparador" onclick="cambiarVista('comparador')">Comparador</button>
   </nav>
 
-  <!-- MODAL AGREGAR PRODUCTO -->
-  <div id="modal-agregar" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl">
-      
-      <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="text-lg font-bold text-gray-800">Agregar Producto</h3>
-        <button onclick="cerrarModalNuevo()" class="text-gray-400 text-xl font-bold p-1">✕</button>
-      </div>
-
-      <!-- 1. ESCÁNER DE CÓDIGO DE BARRAS -->
-      <div>
-        <label class="text-xs font-bold text-gray-600 block mb-1">1. Código de Barras</label>
-        <div id="reader" class="overflow-hidden rounded-lg bg-black min-h-[160px]"></div>
-        <div class="flex gap-2 mt-2">
-          <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-xs font-bold shadow hover:bg-blue-700 active:scale-95 transition">
-            📷 Abrir Escáner
-          </button>
-          <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white py-2 rounded-xl text-xs font-bold active:scale-95 transition">
-            ❌ Detener Escáner
-          </button>
-        </div>
-        <input type="text" id="codigo" placeholder="Código escaneado..." class="w-full mt-2 p-2 bg-gray-50 border rounded-lg text-xs font-mono font-bold">
-      </div>
-
-      <!-- 2. FOTO DE EVIDENCIA -->
-      <div>
-        <label class="text-xs font-bold text-gray-600 block mb-1">2. Foto de Evidencia</label>
-        <label class="block w-full text-center bg-gray-50 border border-dashed border-blue-400 p-2.5 rounded-xl cursor-pointer hover:bg-blue-50 transition">
-          <span class="text-xs font-semibold text-blue-600">📸 Tomar Foto del Producto / Ticket</span>
-          <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="previsualizarFoto(event)">
-        </label>
-        <div id="preview-container" class="mt-2 hidden text-center">
-          <img id="foto-preview" class="max-h-28 mx-auto rounded border shadow-sm" src="" alt="Evidencia">
-        </div>
-      </div>
-
-      <!-- 3. FORMULARIO CAMPOS -->
-      <div class="space-y-3">
-        <div>
-          <label class="text-xs font-bold text-gray-600 block">Nombre del Producto *</label>
-          <input type="text" id="producto" placeholder="Ej: Jabón Aurrerá 900g" class="w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none">
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-bold text-gray-600 block">Cantidad *</label>
-            <input type="number" id="cantidad" value="1" min="0.1" step="any" oninput="calcularTotalModal()" class="w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none">
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-600 block">Precio Unitario ($) *</label>
-            <input type="number" id="precio" placeholder="0.00" step="any" oninput="calcularTotalModal()" class="w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none">
-          </div>
-        </div>
-
-        <!-- SWITCH ¿AGREGAR A LA CUENTA DE COMPRA? -->
-        <div class="flex items-center justify-between py-2 border-t border-b">
-          <span class="text-xs font-bold text-gray-700">¿Agregar a la cuenta de compra?</span>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="seleccion" class="sr-only peer" checked>
-            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-          </label>
-        </div>
-
-        <div class="bg-red-50 p-3 rounded-xl flex justify-between items-center text-sm font-bold text-red-900 border border-red-100">
-          <span>Subtotal:</span>
-          <span id="subtotal-modal" class="text-lg text-red-600 font-black">$0.00</span>
-        </div>
-      </div>
-
-      <button onclick="guardarRegistro()" id="btn-guardar" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">
-        💾 Guardar Producto
-      </button>
-
-    </div>
-  </div>
-
+  <!-- Lógica Básica de Cambio de Pantalla -->
   <script>
-    // Tu nueva URL de despliegue en Google Apps Script
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxGZqEKuUqkF5vRAC1aLJDEZeFrmOiOSbYuFvRGqoBF5BxCxKJ58f2Z8iXwftnb3p7CQw/exec";
-
-    let productosGlobal = [];
-    let html5QrCode = null;
-    let isTransitioning = false;
-    let fotoBase64 = "";
-    let userGps = "";
-
-    document.addEventListener("DOMContentLoaded", () => {
-      cargarProductosPrivado();
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => userGps = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`,
-          err => console.log("GPS no disponible")
-        );
-      }
-    });
-
-    // 1. CARGA PRIVADA VÍA JSONP
-    function cargarProductosPrivado() {
-      const contenedor = document.getElementById('vista-total');
-      contenedor.innerHTML = `
-        <div class="p-8 text-center text-gray-400 font-medium">
-          <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-          <p>Cargando lista de despensa...</p>
-        </div>`;
-
-      const oldScript = document.getElementById('jsonp-script');
-      if (oldScript) oldScript.remove();
-
-      window.procesarRespuestaAppsScript = function(datos) {
-        if (Array.isArray(datos)) {
-          productosGlobal = datos;
-          renderizarLista(productosGlobal);
-          generarComparador(productosGlobal);
-        } else {
-          contenedor.innerHTML = `<div class="p-8 text-center text-red-500 font-medium">Error en formato de datos.</div>`;
-        }
-      };
-
-      const script = document.createElement('script');
-      script.id = 'jsonp-script';
-      script.src = `${APPS_SCRIPT_URL}?callback=procesarRespuestaAppsScript&t=${new Date().getTime()}`;
-      script.onerror = function() {
-        contenedor.innerHTML = `
-          <div class="p-8 text-center text-red-500 font-medium space-y-2">
-            <p>⚠️ Error al cargar los datos desde Apps Script.</p>
-            <p class="text-xs text-gray-500">Verifica que en Apps Script la opción "Quién tiene acceso" esté en "Cualquier persona".</p>
-            <button onclick="cargarProductosPrivado()" class="mt-2 text-xs bg-red-500 text-white font-bold px-4 py-2 rounded-xl shadow">Reintentar</button>
-          </div>`;
-      };
-      document.body.appendChild(script);
-    }
-
-    // 2. RENDERIZAR LISTA PRINCIPAL
-    function renderizarLista(items) {
-      const contenedor = document.getElementById('vista-total');
-      
-      if (!items || items.length === 0) {
-        contenedor.innerHTML = `<div class="p-8 text-center text-gray-400 font-medium">No hay productos registrados aún. Toca (+) para agregar.</div>`;
-        document.getElementById('total-general').textContent = "$0.00";
-        return;
-      }
-
-      let html = "";
-      let sumaTotal = 0;
-
-      items.slice().reverse().forEach(p => {
-        const precioNum = parseFloat(p.precio) || 0;
-        const cantNum = parseFloat(p.cantidad) || 1;
-        const subtotal = precioNum * cantNum;
-
-        if (p.seleccion !== "No" && p.seleccion !== false) {
-          sumaTotal += subtotal;
-        }
-
-        const imgUrl = obtenerUrlImagen(p.foto);
-
-        html += `
-          <div class="p-3 flex items-center gap-3 hover:bg-gray-50 transition ${p.seleccion === 'No' || p.seleccion === false ? 'opacity-40' : ''}">
-            <!-- Foto Miniatura -->
-            <img src="${imgUrl}" class="w-16 h-16 object-cover rounded-md border flex-shrink-0 bg-gray-100" onerror="this.onerror=null;this.src='https://via.placeholder.com/100?text=Sin+Foto';">
-            
-            <!-- Detalles -->
-            <div class="flex-1 min-w-0">
-              <h4 class="font-bold text-gray-900 text-sm truncate">${p.producto}</h4>
-              <p class="text-gray-500 text-xs font-semibold mt-0.5">$${precioNum.toFixed(2)}</p>
-              <p class="text-gray-400 text-[11px] mt-0.5">${p.fecha || ''}</p>
-            </div>
-
-            <!-- Subtotal y Editar -->
-            <div class="text-right flex flex-col items-end justify-between self-stretch py-0.5">
-              <span class="font-bold text-gray-700 text-sm">$${subtotal.toFixed(2)}</span>
-              <button class="text-gray-400 hover:text-gray-600 p-1">
-                <i class="fa-regular fa-pen-to-square text-base"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      });
-
-      contenedor.innerHTML = html;
-      document.getElementById('total-general').textContent = `$${sumaTotal.toFixed(2)}`;
-    }
-
-    // 3. COMPARADOR DE PRECIOS
-    function generarComparador(items) {
-      const contComp = document.getElementById('contenido-comparador');
-      if (!items || items.length === 0) {
-        contComp.innerHTML = `<p class="text-center text-gray-400 text-sm py-4">No hay datos suficientes para comparar.</p>`;
-        return;
-      }
-
-      const grupos = {};
-      items.forEach(item => {
-        const key = item.producto.trim().toLowerCase();
-        if (!grupos[key]) grupos[key] = [];
-        grupos[key].push(item);
-      });
-
-      let html = "";
-      Object.keys(grupos).forEach(key => {
-        const lista = grupos[key];
-        const nombrePrd = lista[0].producto;
-
-        html += `
-          <div class="border rounded-xl p-3 bg-gray-50 space-y-2">
-            <h3 class="font-bold text-sm text-gray-800">${nombrePrd}</h3>
-            <div class="space-y-1 text-xs">
-              ${lista.map(i => `
-                <div class="flex justify-between text-gray-600 border-b border-gray-200 pb-1">
-                  <span>${i.fecha \vert{}\vert{} 'Sin fecha'}</span>                   <span class="font-bold text-gray-800">$${(parseFloat(i.precio)||0).toFixed(2)}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      });
-
-      contComp.innerHTML = html;
-    }
-
-    // 4. BÚSQUEDA Y FILTRADO
-    function toggleBusqueda() {
-      const caja = document.getElementById('caja-busqueda');
-      caja.classList.toggle('hidden');
-      if (!caja.classList.contains('hidden')) {
-        document.getElementById('input-search').focus();
-      }
-    }
-
-    function filtrarProductos() {
-      const query = document.getElementById('input-search').value.toLowerCase().trim();
-      if (!query) {
-        renderizarLista(productosGlobal);
-        return;
-      }
-      const filtrados = productosGlobal.filter(p => p.producto.toLowerCase().includes(query));
-      renderizarLista(filtrados);
-    }
-
-    // 5. CAMBIO DE PESTAÑAS
-    function cambiarPestana(pestana) {
-      const tabTotal = document.getElementById('tab-total');
-      const tabComp = document.getElementById('tab-comparador');
-      const vistaTotal = document.getElementById('vista-total');
-      const vistaComp = document.getElementById('vista-comparador');
-
-      if (pestana === 'total') {
-        vistaTotal.classList.remove('hidden');
-        vistaComp.classList.add('hidden');
-        tabTotal.className = "flex-1 py-2 text-red-500 border-t-2 border-red-500 font-bold flex flex-col items-center";
-        tabComp.className = "flex-1 py-2 text-gray-500 flex flex-col items-center hover:text-red-500";
+    function cambiarVista(vista) {
+      if (vista === 'total') {
+        document.getElementById('vista-total').classList.remove('hidden');
+        document.getElementById('vista-comparador').classList.add('hidden');
+        document.getElementById('tab-total').classList.add('active');
+        document.getElementById('tab-comparador').classList.remove('active');
       } else {
-        vistaTotal.classList.add('hidden');
-        vistaComp.classList.remove('hidden');
-        tabComp.className = "flex-1 py-2 text-red-500 border-t-2 border-red-500 font-bold flex flex-col items-center";
-        tabTotal.className = "flex-1 py-2 text-gray-500 flex flex-col items-center hover:text-red-500";
+        document.getElementById('vista-total').classList.add('hidden');
+        document.getElementById('vista-comparador').classList.remove('hidden');
+        document.getElementById('tab-total').classList.remove('active');
+        document.getElementById('tab-comparador').classList.add('active');
       }
     }
 
-    // 6. ADAPTADOR DE IMÁGENES DE GOOGLE DRIVE
-    function obtenerUrlImagen(foto) {
-      if (!foto) return 'https://via.placeholder.com/100?text=Sin+Foto';
-      if (typeof foto === 'string' && foto.startsWith('http')) {
-        if (foto.includes('drive.google.com') && foto.includes('id=')) {
-          const id = foto.split('id=')[1].split('&')[0];
-          return `https://drive.google.com/uc?export=view&id=${id}`;
+    function comparar() {
+      const g1 = parseFloat(document.getElementById('g1').value) || 0;
+      const p1 = parseFloat(document.getElementById('p1').value) || 0;
+      const g2 = parseFloat(document.getElementById('g2').value) || 0;
+      const p2 = parseFloat(document.getElementById('p2').value) || 0;
+
+      if (g1 > 0 && p1 > 0 && g2 > 0 && p2 > 0) {
+        const u1 = p1 / g1;
+        const u2 = p2 / g2;
+        if (u1 < u2) {
+          document.getElementById('resultado-comparador').innerText = "Conviene más el Producto 1 (más barato por gramo/ml)";
+        } else if (u2 < u1) {
+          document.getElementById('resultado-comparador').innerText = "Conviene más el Producto 2 (más barato por gramo/ml)";
+        } else {
+          document.getElementById('resultado-comparador').innerText = "Cuestan exactamente lo mismo por gramo/ml";
         }
-        return foto;
-      }
-      return 'https://via.placeholder.com/100?text=Sin+Foto';
-    }
-
-    // 7. MODAL Y ESCÁNER DE CÓDIGO DE BARRAS
-    function abrirModalNuevo() {
-      document.getElementById('modal-agregar').classList.remove('hidden');
-    }
-
-    function cerrarModalNuevo() {
-      detenerEscaner();
-      document.getElementById('modal-agregar').classList.add('hidden');
-    }
-
-    async function iniciarEscaner() {
-      if (isTransitioning) return;
-      isTransitioning = true;
-
-      document.getElementById('btn-scan-start').classList.add('hidden');
-      document.getElementById('btn-scan-stop').classList.remove('hidden');
-
-      try {
-        if (html5QrCode && html5QrCode.isScanning) {
-          await html5QrCode.stop();
-          await html5QrCode.clear();
-        }
-
-        html5QrCode = new Html5Qrcode("reader");
-        const qrConfig = { fps: 15, qrbox: { width: 240, height: 100 } };
-
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          qrConfig,
-          (decodedText) => {
-            document.getElementById('codigo').value = decodedText;
-            detenerEscaner();
-          },
-          () => {}
-        );
-      } catch (err) {
-        detenerEscaner();
-      } finally {
-        isTransitioning = false;
+      } else {
+        document.getElementById('resultado-comparador').innerText = "Ingresa todos los datos para comparar";
       }
     }
 
-    async function detenerEscaner() {
-      try {
-        if (html5QrCode && html5QrCode.isScanning) {
-          await html5QrCode.stop();
-          await html5QrCode.clear();
-        }
-      } catch(e){}
-      document.getElementById('btn-scan-start').classList.remove('hidden');
-      document.getElementById('btn-scan-stop').classList.add('hidden');
-      isTransitioning = false;
-    }
-
-    function previsualizarFoto(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          fotoBase64 = evt.target.result;
-          document.getElementById('foto-preview').src = fotoBase64;
-          document.getElementById('preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function calcularTotalModal() {
-      const cant = parseFloat(document.getElementById('cantidad').value) || 0;
-      const prec = parseFloat(document.getElementById('precio').value) || 0;
-      document.getElementById('subtotal-modal').textContent = `$${(cant * prec).toFixed(2)}`;
-    }
-
-    // 8. GUARDAR REGISTRO
-    async function guardarRegistro() {
-      const producto = document.getElementById('producto').value.trim();
-      const precio = document.getElementById('precio').value;
-
-      if (!producto || !precio) {
-        alert("Por favor ingresa el nombre del producto y el precio.");
-        return;
-      }
-
-      const btnGuardar = document.getElementById('btn-guardar');
-      btnGuardar.disabled = true;
-      btnGuardar.textContent = "⏳ Guardando...";
-
-      const payload = {
-        nombreProducto: producto,
-        codigoBarras: document.getElementById('codigo').value,
-        cantidad: parseFloat(document.getElementById('cantidad').value) || 1,
-        precioUnitario: parseFloat(precio),
-        agregarACuenta: document.getElementById('seleccion').checked,
-        gpsLocation: userGps,
-        fotoBase64: fotoBase64
-      };
-
-      try {
-        await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        cerrarModalNuevo();
-        limpiarFormulario();
-        setTimeout(cargarProductosPrivado, 1500);
-
-      } catch (error) {
-        alert("Error al guardar: " + error.message);
-      } finally {
-        btnGuardar.disabled = false;
-        btnGuardar.textContent = "💾 Guardar Producto";
-      }
-    }
-
-    function limpiarFormulario() {
-      document.getElementById('codigo').value = '';
-      document.getElementById('producto').value = '';
-      document.getElementById('cantidad').value = '1';
-      document.getElementById('precio').value = '';
-      document.getElementById('foto-input').value = '';
-      document.getElementById('preview-container').classList.add('hidden');
-      document.getElementById('subtotal-modal').textContent = '$0.00';
-      fotoBase64 = '';
+    function mostrarFormulario() {
+      alert("Aquí abrirá la ventana para capturar un nuevo producto");
     }
   </script>
+
 </body>
 </html>
