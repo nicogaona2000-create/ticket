@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DespensaGT - Dashboard</title>
-  
-  <!-- LIBRERÍA PARA LECTURA DE CÓDIGOS DE BARRAS -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <!-- LIBRERÍA DE ESCÁNER DE CÓDIGO DE BARRAS -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f9; }
@@ -24,7 +24,7 @@
     nav button.active { color: #ea4335; border-top: 3px solid #ea4335; }
     .hidden { display: none !important; }
 
-    /* Estilos del Modal (Ventana Emergente) */
+    /* Estilos del Modal */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; overflow-y: auto; }
     .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
     .modal-content label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; color: #333; }
@@ -38,16 +38,16 @@
 
     .btn-guardar { width: 100%; padding: 10px; background-color: #ea4335; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-cancelar { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
+    .btn-secundario { width: 100%; padding: 8px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; margin-top: 8px; cursor: pointer; }
     
-    /* Switch / Checkbox de Selección */
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-    
-    /* Contenedor de la foto */
-    .foto-preview { width: 100%; height: 120px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 6px; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; color: #888; }
+    .foto-preview { width: 100%; height: 120px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 6px; display: flex; justify-content: center; align-items: center; background-size: cover; background-position: center; color: #888; cursor: pointer; }
   
-    /* Visor del Escáner de Código de Barras */
-    #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-    #reader { width: 300px; max-width: 90%; background: white; border-radius: 8px; overflow: hidden; }
+    /* Visor del Escáner */
+    #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
+    #reader { width: 320px; max-width: 95%; background: white; border-radius: 8px; overflow: hidden; }
+    .scanner-controls { width: 320px; max-width: 95%; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .scanner-controls select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
@@ -61,22 +61,22 @@
     
     <!-- VISTA 1: LISTA Y REGISTRO DE PRODUCTOS -->
     <div id="vista-total">
-      <!-- Barra de Búsqueda con Escáner -->
+      <!-- Barra de Búsqueda -->
       <div class="card flex">
         <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;" oninput="filtrarProductos()">
         <button onclick="abrirEscaner('buscar')" style="padding: 8px; cursor: pointer;">🔍/📷</button>
       </div>
 
-      <!-- Resumen del Total Sumado -->
+      <!-- Resumen del Total -->
       <div class="card flex" style="background-color: #e8f0fe;">
         <h3>Total Seleccionado:</h3>
         <h2 id="total-monto" style="color: #1a73e8;">$10.00</h2>
       </div>
 
-      <!-- Lista de Productos Agregados -->
+      <!-- Lista de Productos -->
       <div id="lista-productos"></div>
 
-      <!-- Botón Flotante para Agregar (+) -->
+      <!-- Botón Flotante (+) -->
       <button class="btn-floating" onclick="abrirModal()">+</button>
     </div>
 
@@ -125,14 +125,12 @@
           <input type="checkbox" id="p-seleccion" checked style="transform: scale(1.3);">
         </div>
 
-        <!-- FECHA Y GPS AUTOMÁTICOS -->
         <label for="p-fecha">Fecha y Hora *</label>
         <input type="datetime-local" id="p-fecha" required readonly style="background-color: #eee;">
 
         <label for="p-gps">GPS *</label>
         <input type="text" id="p-gps" placeholder="Obteniendo ubicación..." readonly style="background-color: #eee;">
 
-        <!-- CAPTURA DE FOTO -->
         <label for="p-foto">Foto *</label>
         <input type="file" id="p-foto" accept="image/*" capture="environment" style="display:none;" onchange="previewFoto(event)">
         <div class="foto-preview" id="preview-box" onclick="document.getElementById('p-foto').click()">
@@ -145,10 +143,20 @@
     </div>
   </div>
 
-  <!-- VISOR DE CÁMARA PARA ESCÁNER DE CÓDIGO DE BARRAS -->
+  <!-- VISOR DE CÁMARA MEJORADO CON SELECCIÓN Y SUBIDA DE IMAGEN -->
   <div id="scanner-overlay" class="hidden">
     <div id="reader"></div>
-    <button onclick="cerrarEscaner()" class="btn-cancelar" style="width: 200px; margin-top: 15px;">Cerrar Cámara</button>
+    
+    <div class="scanner-controls">
+      <!-- Selector de cámaras instaladas -->
+      <select id="camera-select" onchange="cambiarCamara()"></select>
+      
+      <!-- Alternativa rápida: Cargar imagen directamente -->
+      <input type="file" id="file-barcode" accept="image/*" style="display:none;" onchange="escaneoDesdeImagen(event)">
+      <button type="button" class="btn-secundario" onclick="document.getElementById('file-barcode').click()">🖼️ Subir foto del código</button>
+      
+      <button type="button" class="btn-cancelar" onclick="cerrarEscaner()">Cerrar Cámara</button>
+    </div>
   </div>
 
   <!-- Barra de Navegación Inferior -->
@@ -157,7 +165,7 @@
     <button id="tab-comparador" onclick="cambiarVista('comparador')">Comparador</button>
   </nav>
 
-  <!-- Lógica JavaScript -->
+  <!-- Lógica JavaScript optimizada para enfoque rápido -->
   <script>
     let productos = [
       { id: 1, nombre: 'Almohadillas de algodón 100pz', codigo: '7501000', cantidad: 1, precio: 10.00, seleccion: true }
@@ -166,10 +174,11 @@
     let fotoDataUrl = "";
     let html5QrcodeScanner = null;
     let targetInputId = "";
+    let camarasDisponibles = [];
 
-    window.onload = function() {
+    document.addEventListener("DOMContentLoaded", function() {
       renderizarLista();
-    };
+    });
 
     function cambiarVista(vista) {
       if (vista === 'total') {
@@ -185,40 +194,104 @@
       }
     }
 
-    /* ESCÁNER DE CÓDIGO DE BARRAS REAL */
+    /* INICIAR ESCÁNER CON MEJORAS DE ENFOQUE */
     function abrirEscaner(inputId) {
       targetInputId = inputId;
+
+      if (typeof Html5Qrcode === "undefined") {
+        alert("El lector requiere conexión a internet para iniciar.");
+        return;
+      }
+
       document.getElementById('scanner-overlay').classList.remove('hidden');
 
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          camarasDisponibles = devices;
+          const select = document.getElementById('camera-select');
+          select.innerHTML = '';
+          
+          devices.forEach((cam, idx) => {
+            const opt = document.createElement('option');
+            opt.value = cam.id;
+            opt.text = cam.label || `Cámara ${idx + 1}`;
+            select.appendChild(opt);
+          });
+
+          // Seleccionar por defecto la última cámara (suele ser la principal trasera)
+          const camaraInicial = devices[devices.length - 1].id;
+          select.value = camaraInicial;
+
+          iniciarCamara(camaraInicial);
+        } else {
+          iniciarCamara({ facingMode: "environment" });
+        }
+      }).catch(() => {
+        iniciarCamara({ facingMode: "environment" });
+      });
+    }
+
+    function iniciarCamara(cameraIdOrConfig) {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => iniciarInstancia(cameraIdOrConfig)).catch(() => iniciarInstancia(cameraIdOrConfig));
+      } else {
+        iniciarInstancia(cameraIdOrConfig);
+      }
+    }
+
+    function iniciarInstancia(cameraIdOrConfig) {
       html5QrcodeScanner = new Html5Qrcode("reader");
-      
-      const config = { 
-        fps: 10, 
-        qrbox: { width: 250, height: 150 },
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128
-        ]
+
+      // Configuración ligera: caja de enfoque más amplia y 15 FPS para enfocar mejor
+      const config = {
+        fps: 15,
+        qrbox: { width: 280, height: 160 },
+        aspectRatio: 1.0
       };
 
       html5QrcodeScanner.start(
-        { facingMode: "environment" },
+        cameraIdOrConfig,
         config,
         (decodedText) => {
-          document.getElementById(targetInputId).value = decodedText;
-          cerrarEscaner();
-          if (targetInputId === 'buscar') {
-            filtrarProductos();
-          }
+          completarCodigo(decodedText);
         },
-        (errorMessage) => { /* ignora cuadros sin código */ }
+        (errorMessage) => { }
       ).catch((err) => {
-        alert("No se pudo acceder a la cámara: " + err);
-        cerrarEscaner();
+        console.warn("Error al iniciar cámara: ", err);
       });
+    }
+
+    function cambiarCamara() {
+      const selectedId = document.getElementById('camera-select').value;
+      if (selectedId) {
+        iniciarCamara(selectedId);
+      }
+    }
+
+    /* LEER CÓDIGO DESDE FOTO (Alternativa instantánea) */
+    function escaneoDesdeImagen(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+      }
+
+      html5QrcodeScanner.scanFile(file, true)
+        .then(decodedText => {
+          completarCodigo(decodedText);
+        })
+        .catch(err => {
+          alert("No se pudo detectar un código claro en la imagen. Intenta con una toma más cercana.");
+        });
+    }
+
+    function completarCodigo(codigo) {
+      document.getElementById(targetInputId).value = codigo;
+      cerrarEscaner();
+      if (targetInputId === 'buscar') {
+        filtrarProductos();
+      }
     }
 
     function cerrarEscaner() {
@@ -234,7 +307,7 @@
       }
     }
 
-    /* BÚSQUEDA Y FILTRADO */
+    /* BÚSQUEDA */
     function filtrarProductos() {
       const texto = document.getElementById('buscar').value.toLowerCase();
       const filtrados = productos.filter(p => 
