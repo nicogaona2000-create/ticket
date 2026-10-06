@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Control de Despensa GT</title>
-  <!-- Tailwind CSS para diseño móvel -->
+  <!-- Tailwind CSS para diseño móvil -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Librería gratuita para Escáner de Código de Barras -->
+  <!-- Librería para Escáner de Código de Barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -22,14 +22,15 @@
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
       <h2 class="font-bold text-gray-800 text-lg mb-3">1. Escanear Código de Barras</h2>
       
-      <div id="reader" class="overflow-hidden rounded-lg bg-gray-50 border border-dashed border-gray-300"></div>
+      <!-- Contenedor del video del escáner -->
+      <div id="reader" class="overflow-hidden rounded-lg bg-gray-50 border border-dashed border-gray-300 min-h-[200px]"></div>
 
       <div class="mt-3 flex gap-2">
-        <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-2.5 rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
+        <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-3 rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
           📷 Abrir Escáner
         </button>
-        <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white font-medium py-2.5 rounded-xl text-sm hover:bg-gray-600 active:scale-95 transition">
-          ❌ Detener
+        <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white font-medium py-3 rounded-xl text-sm hover:bg-gray-600 active:scale-95 transition">
+          ❌ Detener Escáner
         </button>
       </div>
 
@@ -99,7 +100,6 @@
   </main>
 
   <script>
-    // Tu URL desplegada de Google Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxk0z9dHQ_VujZXCeLlzi-LxWzVY2c_mmnxyGKxGd9GmtyO4xNnSC8iZ9S2GTGI4vsGeg/exec";
 
     let html5QrCode = null;
@@ -116,36 +116,55 @@
       );
     }
 
-    // 2. Control del Escáner de Códigos de Barra
-    function iniciarEscaner() {
+    // 2. Control del Escáner optimizado para iOS (Safari / iPhone)
+    async function iniciarEscaner() {
       document.getElementById('btn-scan-start').classList.add('hidden');
       document.getElementById('btn-scan-stop').classList.remove('hidden');
 
-      html5QrCode = new Html5Qrcode("reader");
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
 
-      const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+      const qrConfig = {
+        fps: 10,
+        qrbox: { width: 250, height: 150 }
+      };
 
-      // Iniciar con preferencia por cámara trasera
-      html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          document.getElementById('codigo').value = decodedText;
-          detenerEscaner();
-          try {
-            const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
-            audio.play();
-          } catch(e){}
-        },
-        (errorMessage) => {}
-      ).catch(err => {
-        alert("Atención: Por favor permite el acceso a la cámara cuando el navegador lo solicite.\n\nDetalle: " + err);
+      const onScanSuccess = (decodedText) => {
+        document.getElementById('codigo').value = decodedText;
         detenerEscaner();
-      });
+        try {
+          const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
+          audio.play();
+        } catch(e){}
+      };
+
+      // Intento 1: Cámara trasera estricta (funciona mejor en iOS Safari)
+      try {
+        await html5QrCode.start(
+          { facingMode: { exact: "environment" } },
+          qrConfig,
+          onScanSuccess,
+          () => {}
+        );
+      } catch (err1) {
+        // Intento 2: Fallback a cámara trasera genérica si exact falla
+        try {
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            qrConfig,
+            onScanSuccess,
+            () => {}
+          );
+        } catch (err2) {
+          alert("⚠️ No se pudo acceder a la cámara del iPhone.\n\nPor favor verifica:\n1. Abrir la página directamente desde Safari (no dentro de WhatsApp/Facebook).\n2. En tu iPhone ve a Ajustes > Safari > Cámara y selecciona 'Permitir'.");
+          detenerEscaner();
+        }
+      }
     }
 
     function detenerEscaner() {
-      if (html5QrCode) {
+      if (html5QrCode && html5QrCode.isScanning) {
         html5QrCode.stop().then(() => {
           html5QrCode.clear();
           document.getElementById('btn-scan-start').classList.remove('hidden');
@@ -154,6 +173,9 @@
           document.getElementById('btn-scan-start').classList.remove('hidden');
           document.getElementById('btn-scan-stop').classList.add('hidden');
         });
+      } else {
+        document.getElementById('btn-scan-start').classList.remove('hidden');
+        document.getElementById('btn-scan-stop').classList.add('hidden');
       }
     }
 
