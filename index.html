@@ -1,437 +1,507 @@
-<script>
-  const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbyAshF-k-zr2Ahas7EHn3q03CdJ4_clI3GgfB4X_XFcd3Zn1aW4szYolb9dlfSLJqKTxw/exec";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Productos e Inventario</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <!-- QuaggaJS para lectura de código de barras por cámara -->
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
 
-  let productos = [];
-  let historico = [];
-  let html5QrcodeScanner = null;
-  let targetInputId = "";
-
-  document.addEventListener("DOMContentLoaded", function() {
-    cargarProductosDesdeSheets();
-    cargarHistoricoDesdeSheets();
-  });
-
-  async function cargarProductosDesdeSheets() {
-    const contenedor = document.getElementById('lista-productos');
-    contenedor.innerHTML = '<p style="text-align:center; color:#777;">Cargando productos...</p>';
-
-    try {
-      const respuesta = await fetch(`${URL_GOOGLE_SCRIPT}?action=getProductos`);
-      const resultado = await respuesta.json();
-
-      if (resultado.result === "success") {
-        productos = resultado.data;
-        filtrarProductos();
-      } else {
-        contenedor.innerHTML = '<p style="text-align:center; color:red;">Error al cargar productos.</p>';
-      }
-    } catch (error) {
-      console.error("Error consultando Sheets:", error);
-      contenedor.innerHTML = '<p style="text-align:center; color:red;">No se pudieron cargar los datos.</p>';
+  <style>
+    body {
+      background-color: #f4f6f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-  }
-
-  async function cargarHistoricoDesdeSheets() {
-    const contenedor = document.getElementById('lista-historico');
-    try {
-      const respuesta = await fetch(`${URL_GOOGLE_SCRIPT}?action=getHistorico`);
-      const resultado = await respuesta.json();
-
-      if (resultado.result === "success") {
-        historico = resultado.data;
-        filtrarHistorico();
-      }
-    } catch (error) {
-      console.error("Error consultando Histórico:", error);
+    .card-custom {
+      border-radius: 12px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
-  }
+    .btn-action {
+      border-radius: 8px;
+    }
+    #interactive.viewport {
+      position: relative;
+      width: 100%;
+      height: 250px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #000;
+    }
+    #interactive.viewport video, #interactive.viewport canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    canvas.drawing, canvas.drawingBuffer {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .table-hover tbody tr:hover {
+      background-color: #eef2f7;
+    }
+    .badge-gps {
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body class="pb-5">
 
-  function cambiarVista(vista) {
-    document.getElementById('vista-total').classList.add('hidden');
-    document.getElementById('vista-comparador').classList.add('hidden');
-    document.getElementById('vista-historico').classList.add('hidden');
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#"><i class="bi bi-cart-check-fill me-2"></i>Gestor de Compras</a>
+      <button class="btn btn-outline-light btn-sm" onclick="cargarTodo()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+    </div>
+  </nav>
+
+  <div class="container">
     
-    document.getElementById('tab-total').classList.remove('active');
-    document.getElementById('tab-comparador').classList.remove('active');
-    document.getElementById('tab-historico').classList.remove('active');
+    <!-- Pestañas principales -->
+    <ul class="nav nav-pills mb-3 justify-content-center" id="pills-tab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" id="pills-productos-tab" data-bs-toggle="pill" data-bs-target="#pills-productos" type="button" role="tab"><i class="bi bi-box-seam me-1"></i> Lista de Productos</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="pills-historico-tab" data-bs-toggle="pill" data-bs-target="#pills-historico" type="button" role="tab"><i class="bi bi-journal-text me-1"></i> Histórico de Compras</button>
+      </li>
+    </ul>
 
-    if (vista === 'total') {
-      document.getElementById('vista-total').classList.remove('hidden');
-      document.getElementById('tab-total').classList.add('active');
-      filtrarProductos();
-    } else if (vista === 'comparador') {
-      document.getElementById('vista-comparador').classList.remove('hidden');
-      // CORRECCIÓN 1: Se agrega .add('active') correctamente
-      document.getElementById('tab-comparador').classList.add('active'); 
-    } else if (vista === 'historico') {
-      document.getElementById('vista-historico').classList.remove('hidden');
-      document.getElementById('tab-historico').classList.add('active');
-      cargarHistoricoDesdeSheets();
-    }
-  }
-
-  function toggleSeleccion(index) {
-    productos[index].seleccion = !productos[index].seleccion;
-    filtrarProductos();
-  }
-
-  function cambiarSeleccionTodos(estado) {
-    productos.forEach(p => p.seleccion = estado);
-    filtrarProductos();
-  }
-
-  function actualizarTotal() {
-    const total = productos.reduce((suma, p) => {
-      return p.seleccion ? suma + (parseFloat(p.cantidad || 1) * parseFloat(p.precio || 0)) : suma;
-    }, 0);
-
-    document.getElementById('total-monto').innerText = `$${total.toFixed(2)}`;
-  }
-
-  function renderizarLista(lista = productos) {
-    const contenedor = document.getElementById('lista-productos');
-    contenedor.innerHTML = '';
-
-    if (!lista || lista.length === 0) {
-      contenedor.innerHTML = '<p style="text-align:center; color:#777;">No se encontraron productos.</p>';
-      actualizarTotal();
-      return;
-    }
-
-    const listaOrdenada = [...lista].sort((a, b) => {
-      if (a.seleccion === b.seleccion) return 0;
-      return a.seleccion ? -1 : 1;
-    });
-
-    listaOrdenada.forEach((p) => {
-      const indexReal = productos.findIndex(prod => String(prod.id) === String(p.id));
-      const esSeleccionado = p.seleccion === true;
+    <div class="tab-content" id="pills-tabContent">
       
-      const mapUrl = p.gps && String(p.gps).includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(p.gps)}` : null;
+      <!-- PESTAÑA 1: PRODUCTOS -->
+      <div class="tab-pane fade show active" id="pills-productos" role="tabpanel">
+        
+        <div class="row g-3">
+          <!-- Formulario de producto -->
+          <div class="col-lg-4">
+            <div class="card card-custom p-3 bg-white">
+              <h5 class="card-title fw-bold mb-3 text-primary"><i class="bi bi-pencil-square me-2"></i> Guardar Producto</h5>
+              
+              <form id="formProducto" onsubmit="guardarProducto(event)">
+                <input type="hidden" id="idProducto">
 
-      contenedor.innerHTML += `
-        <div class="card card-clickable flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
-          <div style="flex-grow: 1;" onclick="abrirModal('${p.id}')">
-            <strong>${p.producto || p.nombre}</strong><br>
-            <small>Código: ${p.codigo}</small><br>
-            <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio || 0).toFixed(2)}</small><br>
-            <small style="color: #666;">Ubicación: ${p.gps || 'Sin GPS'} 
-              ${mapUrl ? `<a href="${mapUrl}" target="_blank" onclick="event.stopPropagation();" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[📍 Ver Mapa]</a>` : ''}
-            </small>
+                <div class="mb-2">
+                  <label class="form-label small fw-bold">Producto</label>
+                  <input type="text" class="form-control" id="nombreProducto" placeholder="Ej. Leche Entera 1L" required>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small fw-bold">Código de Barras</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" id="codigoProducto" placeholder="Código">
+                    <button class="btn btn-outline-secondary" type="button" onclick="iniciarEscaner()"><i class="bi bi-camera"></i></button>
+                  </div>
+                </div>
+
+                <!-- Visor del escáner -->
+                <div id="contenedorEscaner" class="d-none mb-2">
+                  <div id="interactive" class="viewport"></div>
+                  <button type="button" class="btn btn-danger btn-sm w-100 mt-1" onclick="detenerEscaner()">Cerrar Cámara</button>
+                </div>
+
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Cantidad</label>
+                    <input type="number" class="form-control" id="cantidadProducto" value="1" min="1" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Precio ($)</label>
+                    <input type="number" step="0.01" class="form-control" id="precioProducto" placeholder="0.00" required>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold">GPS</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control form-control-sm" id="gpsProducto" placeholder="Obteniendo coordenadas..." readonly>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="obtenerGPS()"><i class="bi bi-geo-alt"></i></button>
+                  </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-primary btn-action fw-bold" id="btnGuardar">
+                    <i class="bi bi-save me-1"></i> Guardar Producto
+                  </button>
+                  <button type="button" class="btn btn-light btn-sm text-secondary" onclick="limpiarFormulario()">Limpiar Formulario</button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div onclick="event.stopPropagation();">
-            <label style="cursor: pointer; font-weight: bold; color: ${esSeleccionado ? '#1a73e8' : '#666'};">
-              <input type="checkbox" ${esSeleccionado ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
-            </label>
+
+          <!-- Tabla de productos -->
+          <div class="col-lg-8">
+            <div class="card card-custom p-3 bg-white">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title fw-bold mb-0 text-primary"><i class="bi bi-list-check me-2"></i> Lista Disponibles</h5>
+                <button class="btn btn-success btn-action fw-bold" onclick="registrarCompraMasiva()">
+                  <i class="bi bi-cart-plus me-1"></i> Registrar Compra
+                </button>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th scope="col" class="text-center"><input type="checkbox" class="form-check-input" id="checkTodos" onchange="toggleSeleccionarTodos(this)"></th>
+                      <th scope="col">Producto</th>
+                      <th scope="col">Código</th>
+                      <th scope="col" class="text-center">Cant.</th>
+                      <th scope="col" class="text-end">Precio</th>
+                      <th scope="col" class="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaProductosBody">
+                    <tr><td colspan="6" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando productos...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
-      `;
-    });
 
-    actualizarTotal();
-  }
+      </div>
 
-  function renderizarHistorico(lista = historico) {
-    const contenedor = document.getElementById('lista-historico');
-    contenedor.innerHTML = '';
-
-    if (!lista || lista.length === 0) {
-      contenedor.innerHTML = '<p style="text-align:center; color:#777;">No se encontraron registros en el histórico.</p>';
-      return;
-    }
-
-    const ordenado = [...lista].reverse();
-
-    ordenado.forEach(h => {
-      const totalCompra = (parseFloat(h.cantidad || 1) * parseFloat(h.precio || 0)).toFixed(2);
-      const mapUrl = h.gps && String(h.gps).includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(h.gps)}` : null;
-
-      contenedor.innerHTML += `
-        <div class="card">
-          <div class="flex">
-            <strong>${h.producto || h.nombre || 'Producto'}</strong>
-            <span class="badge-compra">Comprado</span>
-          </div>
-          <div style="font-size: 13px; color: #555; margin-top: 5px;">
-            <strong>Código:</strong> ${h.codigo}<br>
-            <strong>Fecha:</strong> ${h.fecha || 'N/D'}<br>
-            <strong>Cantidad:</strong> ${h.cantidad} | <strong>Precio Unitario:</strong> $${parseFloat(h.precio || 0).toFixed(2)}<br>
-            <strong>Total pagado:</strong> <span style="color:#1a73e8; font-weight:bold;">$${totalCompra}</span><br>
-            <strong>Ubicación:</strong> ${h.gps || 'Sin GPS'} 
-            ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[ Ver Mapa 📍]</a>` : ''}
+      <!-- PESTAÑA 2: HISTÓRICO -->
+      <div class="tab-pane fade" id="pills-historico" role="tabpanel">
+        <div class="card card-custom p-3 bg-white">
+          <h5 class="card-title fw-bold mb-3 text-primary"><i class="bi bi-history me-2"></i> Histórico de Compras Realizadas</h5>
+          
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Producto</th>
+                  <th scope="col">Código</th>
+                  <th scope="col" class="text-center">Cant.</th>
+                  <th scope="col" class="text-end">Precio Unit.</th>
+                  <th scope="col" class="text-end">Total</th>
+                  <th scope="col" class="text-center">GPS</th>
+                </tr>
+              </thead>
+              <tbody id="tablaHistoricoBody">
+                <tr><td colspan="7" class="text-center text-muted py-4">Selecciona esta pestaña para ver el historial.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
-      `;
-    });
-  }
+      </div>
 
-  function filtrarProductos() {
-    const texto = (document.getElementById('buscar').value || '').trim().toLowerCase();
-    if (!texto) {
-      renderizarLista(productos);
-      return;
+    </div>
+  </div>
+
+  <!-- SweetAlert2 para Notificaciones -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // URL Web App de Apps Script
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwbU_1K_2WKWh5b32dojmE1O3y3CjlX0DNYPnMuKxi5sxs18mIIc6IYUFhwyMqr9ai-kA/exec';
+
+    let listaProductosLocal = [];
+
+    // --- INICIALIZACIÓN ---
+    document.addEventListener("DOMContentLoaded", () => {
+      cargarTodo();
+      obtenerGPS();
+
+      // Cargar histórico cuando se abre la pestaña de Histórico
+      document.getElementById('pills-historico-tab').addEventListener('shown.bs.tab', cargarHistorico);
+    });
+
+    function cargarTodo() {
+      cargarProductos();
     }
-    const filtrados = productos.filter(p => {
-      const nombre = (p.producto || p.nombre || '').toString().toLowerCase();
-      const codigo = (p.codigo || '').toString().toLowerCase();
-      return nombre.includes(texto) || codigo.includes(texto);
-    });
-    renderizarLista(filtrados);
-  }
 
-  function filtrarHistorico() {
-    const texto = (document.getElementById('buscar-historico').value || '').trim().toLowerCase();
-    if (!texto) {
-      renderizarHistorico(historico);
-      return;
-    }
-    const filtrados = historico.filter(h => {
-      const nombre = (h.producto || h.nombre || '').toString().toLowerCase();
-      const codigo = (h.codigo || '').toString().toLowerCase();
-      return nombre.includes(texto) || codigo.includes(texto);
-    });
-    renderizarHistorico(filtrados);
-  }
+    // --- CONSUMO DE API (GET) ---
 
-  function obtenerUbicacionGPS() {
-    const inputGps = document.getElementById('p-gps');
-    inputGps.value = "Obteniendo ubicación...";
+    async function cargarProductos() {
+      const tbody = document.getElementById('tablaProductosBody');
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando datos...</td></tr>`;
 
-    return new Promise((resolve) => {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-            inputGps.value = coords;
-            resolve(coords);
-          },
-          (err) => {
-            console.warn("GPS error o permiso denegado:", err);
-            inputGps.value = "Ubicación no disponible";
-            resolve("Ubicación no disponible");
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-      } else {
-        inputGps.value = "GPS no soportado";
-        resolve("GPS no soportado");
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getProductos`);
+        const data = await res.json();
+
+        if (data.result === 'success') {
+          listaProductosLocal = data.data || [];
+          renderizarTablaProductos(listaProductosLocal);
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle me-1"></i> Error al cargar productos: ${err.message}</td></tr>`;
       }
-    });
-  }
-
-  async function procesarPago() {
-    const seleccionados = productos.filter(p => p.seleccion === true);
-
-    if (seleccionados.length === 0) {
-      alert("Por favor, selecciona al menos un producto para pagar.");
-      return;
     }
 
-    const btnPagar = document.getElementById('btn-pagar');
-    btnPagar.disabled = true;
-    btnPagar.innerText = "Procesando...";
+    async function cargarHistorico() {
+      const tbody = document.getElementById('tablaHistoricoBody');
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando histórico...</td></tr>`;
 
-    let ubicacionGps = await obtenerUbicacionGPS();
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getHistorico`);
+        const data = await res.json();
 
-    try {
-      await fetch(URL_GOOGLE_SCRIPT, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "registrarCompra",
-          productos: seleccionados,
-          gps: ubicacionGps
-        })
-      });
-
-      alert(`¡Compra registrada! Se guardaron ${seleccionados.length} productos en HISTORICO.`);
-
-      productos.forEach(p => p.seleccion = false);
-      filtrarProductos();
-    } catch (error) {
-      console.error("Error al registrar el pago:", error);
-      alert("Ocurrió un error al intentar procesar el pago.");
-    } finally {
-      btnPagar.disabled = false;
-      btnPagar.innerText = "💳 PAGAR";
+        if (data.result === 'success') {
+          renderizarTablaHistorico(data.data || []);
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle me-1"></i> Error al cargar histórico: ${err.message}</td></tr>`;
+      }
     }
-  }
 
-  function abrirEscaner(inputId) {
-    targetInputId = inputId;
-    document.getElementById('scanner-overlay').classList.remove('hidden');
+    // --- RENDERIZADO DE TABLAS ---
 
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length) {
-        const select = document.getElementById('camera-select');
-        select.innerHTML = '';
-        devices.forEach((cam, idx) => {
-          const opt = document.createElement('option');
-          opt.value = cam.id;
-          opt.text = cam.label || `Cámara ${idx + 1}`;
-          select.appendChild(opt);
+    function renderizarTablaProductos(productos) {
+      const tbody = document.getElementById('tablaProductosBody');
+      if (productos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No hay productos registrados.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = productos.map(p => `
+        <tr>
+          <td class="text-center">
+            <input type="checkbox" class="form-check-input check-item" data-id="${p.id}" ${p.seleccion ? 'checked' : ''} onchange="actualizarSeleccionLocal('${p.id}', this.checked)">
+          </td>
+          <td class="fw-semibold">${p.producto || p.nombre || ''}</td>
+          <td><span class="badge bg-light text-dark border">${p.codigo || 'N/A'}</span></td>
+          <td class="text-center">${p.cantidad || 0}</td>
+          <td class="text-end fw-bold">$${parseFloat(p.precio || 0).toFixed(2)}</td>
+          <td class="text-center">
+            <button class="btn btn-outline-primary btn-sm me-1" onclick="editarProducto('${p.id}')" title="Editar"><i class="bi bi-pencil"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderizarTablaHistorico(historico) {
+      const tbody = document.getElementById('tablaHistoricoBody');
+      if (historico.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No hay historial de compras.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = historico.map(h => {
+        const total = (parseFloat(h.cantidad || 0) * parseFloat(h.precio || 0)).toFixed(2);
+        return `
+          <tr>
+            <td class="small text-muted">${h.fecha || ''}</td>
+            <td class="fw-semibold">${h.producto || h.nombre || ''}</td>
+            <td><span class="badge bg-light text-dark border">${h.codigo || 'N/A'}</span></td>
+            <td class="text-center">${h.cantidad || 0}</td>
+            <td class="text-end">$${parseFloat(h.precio || 0).toFixed(2)}</td>
+            <td class="text-end fw-bold text-success">$${total}</td>
+            <td class="text-center"><span class="badge bg-info text-dark badge-gps"><i class="bi bi-geo-alt-fill"></i> ${h.gps || 'Sin GPS'}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // --- ACCIONES (POST) ---
+
+    async function guardarProducto(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnGuardar');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Guardando...`;
+
+      const id = document.getElementById('idProducto').value || 'PROD-' + Date.now();
+      const producto = document.getElementById('nombreProducto').value.trim();
+      const codigo = document.getElementById('codigoProducto').value.trim();
+      const cantidad = parseInt(document.getElementById('cantidadProducto').value) || 1;
+      const precio = parseFloat(document.getElementById('precioProducto').value) || 0;
+      const gps = document.getElementById('gpsProducto').value.trim() || 'Sin GPS';
+      const fecha = new Date().toISOString().slice(0, 16).replace("T", " ");
+
+      // Buscar si conservaba estado de selección previo
+      const prodPrevio = listaProductosLocal.find(p => String(p.id) === String(id));
+      const seleccion = prodPrevio ? prodPrevio.seleccion : false;
+
+      const payload = {
+        action: "guardarProducto",
+        id, producto, codigo, cantidad, precio, seleccion, fecha, gps
+      };
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
         });
-        const camaraInicial = devices[devices.length - 1].id;
-        select.value = camaraInicial;
-        iniciarCamara(camaraInicial);
-      }
-    }).catch(() => iniciarCamara({ facingMode: "environment" }));
-  }
+        const data = await res.json();
 
-  function iniciarCamara(cameraIdOrConfig) {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.stop().then(() => iniciarInstancia(cameraIdOrConfig)).catch(() => iniciarInstancia(cameraIdOrConfig));
-    } else {
-      iniciarInstancia(cameraIdOrConfig);
-    }
-  }
-
-  function iniciarInstancia(cameraIdOrConfig) {
-    html5QrcodeScanner = new Html5Qrcode("reader");
-    html5QrcodeScanner.start(
-      cameraIdOrConfig,
-      { fps: 15, qrbox: { width: 280, height: 160 } },
-      (decodedText) => {
-        document.getElementById(targetInputId).value = decodedText;
-        cerrarEscaner();
-        if (targetInputId === 'buscar') filtrarProductos();
-        if (targetInputId === 'buscar-historico') filtrarHistorico();
-      }
-    ).catch(err => console.warn(err));
-  }
-
-  function cambiarCamara() {
-    const selectedId = document.getElementById('camera-select').value;
-    if (selectedId) iniciarCamara(selectedId);
-  }
-
-  function cerrarEscaner() {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.stop().then(() => {
-        html5QrcodeScanner.clear();
-        document.getElementById('scanner-overlay').classList.add('hidden');
-      }).catch(() => document.getElementById('scanner-overlay').classList.add('hidden'));
-    } else {
-      document.getElementById('scanner-overlay').classList.add('hidden');
-    }
-  }
-
-  async function abrirModal(idProducto = null) {
-    document.getElementById('modal-producto').classList.remove('hidden');
-
-    if (idProducto) {
-      // CORRECCIÓN 2: Comparación segura convertida a String
-      const p = productos.find(prod => String(prod.id) === String(idProducto));
-      if (p) {
-        document.getElementById('modal-titulo').innerText = "Editar Producto";
-        document.getElementById('p-id').value = p.id;
-        document.getElementById('p-nombre').value = p.producto || p.nombre;
-        document.getElementById('p-codigo').value = p.codigo;
-        document.getElementById('p-cantidad').value = p.cantidad;
-        document.getElementById('p-precio').value = p.precio;
-        document.getElementById('p-seleccion').checked = p.seleccion;
-        document.getElementById('p-fecha').value = p.fecha || "";
-        document.getElementById('p-gps').value = p.gps || "";
-      }
-    } else {
-      document.getElementById('modal-titulo').innerText = "Registro de Producto";
-      document.getElementById('form-nuevo-producto').reset();
-      document.getElementById('p-id').value = "";
-      
-      const ahora = new Date();
-      ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
-      document.getElementById('p-fecha').value = ahora.toISOString().slice(0, 16);
-
-      document.getElementById('p-gps').value = "Obteniendo ubicación...";
-      
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-            document.getElementById('p-gps').value = coords;
-          },
-          (err) => {
-            console.warn("Error obteniendo GPS al abrir modal:", err);
-            document.getElementById('p-gps').value = "Ubicación no disponible";
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-      } else {
-        document.getElementById('p-gps').value = "GPS no soportado";
+        if (data.result === 'success') {
+          Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Producto guardado correctamente', timer: 1500, showConfirmButton: false });
+          limpiarFormulario();
+          cargarProductos();
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-save me-1"></i> Guardar Producto`;
       }
     }
-  }
 
-  function cerrarModal() {
-    document.getElementById('modal-producto').classList.add('hidden');
-    document.getElementById('form-nuevo-producto').reset();
-  }
+    async function registrarCompraMasiva() {
+      const seleccionados = listaProductosLocal.filter(p => p.seleccion);
 
-  async function guardarProducto(event) {
-    event.preventDefault();
+      if (seleccionados.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Sin selección', text: 'Marca al menos un producto para registrar la compra.' });
+        return;
+      }
 
-    const btnSubmit = document.getElementById('btn-submit');
-    btnSubmit.innerText = "Guardando...";
-    btnSubmit.disabled = true;
-
-    let coordsGps = document.getElementById('p-gps').value;
-    if (!coordsGps || coordsGps === "Obteniendo ubicación...") {
-      coordsGps = await obtenerUbicacionGPS();
-    }
-
-    const idExistente = document.getElementById('p-id').value;
-
-    const productoObj = {
-      action: "guardarProducto",
-      id: idExistente ? parseInt(idExistente) : Date.now(),
-      producto: document.getElementById('p-nombre').value,
-      codigo: document.getElementById('p-codigo').value,
-      cantidad: parseFloat(document.getElementById('p-cantidad').value) || 1,
-      precio: parseFloat(document.getElementById('p-precio').value) || 0,
-      seleccion: document.getElementById('p-seleccion').checked,
-      fecha: document.getElementById('p-fecha').value,
-      gps: coordsGps
-    };
-
-    try {
-      await fetch(URL_GOOGLE_SCRIPT, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(productoObj)
+      const confirmacion = await Swal.fire({
+        title: '¿Confirmar compra?',
+        text: `Se enviarán ${seleccionados.length} productos al histórico.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, registrar',
+        cancelButtonText: 'Cancelar'
       });
 
-      if (idExistente) {
-        const index = productos.findIndex(p => String(p.id) === String(idExistente));
-        if (index !== -1) productos[index] = productoObj;
-      } else {
-        productos.push(productoObj);
+      if (!confirmacion.isConfirmed) return;
+
+      const gps = document.getElementById('gpsProducto').value.trim() || 'Sin GPS';
+      const payload = {
+        action: "registrarCompra",
+        gps: gps,
+        productos: seleccionados
+      };
+
+      Swal.fire({ title: 'Registrando compra...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.result === 'success') {
+          Swal.fire({ icon: 'success', title: '¡Compra registrada!', text: 'Los productos se movieron al Histórico.', timer: 2000, showConfirmButton: false });
+          document.getElementById('checkTodos').checked = false;
+          cargarProductos();
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      }
+    }
+
+    // --- AUXILIARES Y EDICIÓN ---
+
+    function editarProducto(id) {
+      const prod = listaProductosLocal.find(p => String(p.id) === String(id));
+      if (!prod) return;
+
+      document.getElementById('idProducto').value = prod.id;
+      document.getElementById('nombreProducto').value = prod.producto || prod.nombre || '';
+      document.getElementById('codigoProducto').value = prod.codigo || '';
+      document.getElementById('cantidadProducto').value = prod.cantidad || 1;
+      document.getElementById('precioProducto').value = prod.precio || 0;
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function limpiarFormulario() {
+      document.getElementById('formProducto').reset();
+      document.getElementById('idProducto').value = '';
+      document.getElementById('cantidadProducto').value = 1;
+      obtenerGPS();
+    }
+
+    function actualizarSeleccionLocal(id, estado) {
+      const prod = listaProductosLocal.find(p => String(p.id) === String(id));
+      if (prod) prod.seleccion = estado;
+    }
+
+    function toggleSeleccionarTodos(chk) {
+      const checkboxes = document.querySelectorAll('.check-item');
+      checkboxes.forEach(c => {
+        c.checked = chk.checked;
+        actualizarSeleccionLocal(c.getAttribute('data-id'), chk.checked);
+      });
+    }
+
+    // --- GEOLOCALIZACIÓN GPS ---
+
+    function obtenerGPS() {
+      const inputGps = document.getElementById('gpsProducto');
+      if (!navigator.geolocation) {
+        inputGps.value = "Sin soporte GPS";
+        return;
       }
 
-      filtrarProductos();
-      cerrarModal();
-    } catch (err) {
-      console.error("Error al guardar en Sheets:", err);
-      alert("Ocurrió un error al intentar enviar la información a Google Sheets.");
-    } finally {
-      btnSubmit.innerText = "Guardar";
-      btnSubmit.disabled = false;
+      inputGps.value = "Obteniendo...";
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude.toFixed(5);
+          const lon = pos.coords.longitude.toFixed(5);
+          inputGps.value = `${lat},${lon}`;
+        },
+        err => {
+          inputGps.value = "Sin GPS";
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
     }
-  }
 
-  function calcularPrecio2() {
-    const g1 = parseFloat(document.getElementById('g1').value) || 0;
-    const p1 = parseFloat(document.getElementById('p1').value) || 0;
-    const g2 = parseFloat(document.getElementById('g2').value) || 0;
-    const inputP2 = document.getElementById('p2');
-    const divResultado = document.getElementById('resultado-comparador');
+    // --- ESCÁNER DE CÓDIGO DE BARRAS (QUAGGAJS) ---
 
-    if (g1 > 0 && p1 > 0 && g2 > 0) {
-      const precioCalculado = (p1 * g2) / g1;
-      inputP2.value = precioCalculado.toFixed(2);
-      divResultado.innerHTML = `Para que ${g2}g/ml sea equivalente, debe costar <strong>$${precioCalculado.toFixed(2)}</strong> o menos.`;
-    } else {
-      inputP2.value = '';
-      divResultado.innerText = 'Ingresa Gramos 1, Precio 1 y Gramos 2 para calcular.';
+    function iniciarEscaner() {
+      const contenedor = document.getElementById('contenedorEscaner');
+      contenedor.classList.remove('d-none');
+
+      Quagga.init({
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: document.querySelector('#interactive'),
+          constraints: { facingMode: "environment" }
+        },
+        decoder: {
+          readers: ["code_128_reader", "ean_reader", "ean_8_reader", "upc_reader", "code_39_reader"]
+        }
+      }, function(err) {
+        if (err) {
+          Swal.fire('Error', 'No se pudo acceder a la cámara: ' + err.name, 'error');
+          contenedor.classList.add('d-none');
+          return;
+        }
+        Quagga.start();
+      });
+
+      Quagga.onDetected(onBarcodeDetected);
     }
-  }
-</script>
+
+    function onBarcodeDetected(result) {
+      const code = result.codeResult.code;
+      if (code) {
+        document.getElementById('codigoProducto').value = code;
+        detenerEscaner();
+        Swal.fire({ icon: 'success', title: 'Código detectado', text: code, timer: 1200, showConfirmButton: false });
+      }
+    }
+
+    function detenerEscaner() {
+      Quagga.offDetected(onBarcodeDetected);
+      Quagga.stop();
+      document.getElementById('contenedorEscaner').classList.add('d-none');
+    }
+  </script>
+</body>
+</html>
