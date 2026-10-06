@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Despensa GT</title>
+  <!-- Tailwind CSS para diseño moderno y responsive -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Librería gratuita para escáner de Código de Barras -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-gray-100 min-h-screen pb-10">
+
+  <header class="bg-blue-600 text-white py-4 px-6 text-center shadow-md">
+    <h1 class="text-2xl font-bold">🛒 Control de Despensa GT</h1>
+    <p class="text-xs text-blue-100">Registro rápido de abasto</p>
+  </header>
+
+  <main class="max-w-md mx-auto mt-6 px-4 space-y-6">
+
+    <!-- SECCIÓN 1: ESCÁNER DE CÓDIGO DE BARRAS -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+      <h2 class="font-bold text-gray-800 text-lg mb-3">1. Escanear Código de Barras</h2>
+      
+      <div id="reader" class="overflow-hidden rounded-lg bg-gray-50 border border-dashed border-gray-300"></div>
+
+      <div class="mt-3 flex gap-2">
+        <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-2 rounded-xl text-sm shadow hover:bg-blue-700">
+          📷 Abrir Escáner
+        </button>
+        <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white font-medium py-2 rounded-xl text-sm hover:bg-gray-600">
+          ❌ Detener
+        </button>
+      </div>
+
+      <div class="mt-3">
+        <label class="text-xs text-gray-500 font-semibold">Código Escaneado:</label>
+        <input type="text" id="codigo" placeholder="Esperando escáner..." class="w-full mt-1 p-2 bg-gray-50 border rounded-lg text-sm text-gray-700 font-mono">
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: EVIDENCIA EN FOTO Y OCR -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+      <h2 class="font-bold text-gray-800 text-lg mb-3">2. Foto de Evidencia</h2>
+      
+      <label class="block w-full text-center bg-gray-50 border-2 border-dashed border-blue-400 p-4 rounded-xl cursor-pointer hover:bg-blue-50 transition">
+        <span class="text-sm font-medium text-blue-600">📸 Tomar Foto o Seleccionar</span>
+        <input type="file" id="foto-input" accept="image/*" capture="environment" class="hidden" onchange="previsualizarYConvertirFoto(event)">
+      </label>
+
+      <!-- Previsualización -->
+      <div id="preview-container" class="mt-3 hidden text-center">
+        <img id="foto-preview" class="max-h-48 mx-auto rounded-lg shadow-sm border" src="" alt="Evidencia">
+        <span class="text-xs text-green-600 font-medium block mt-1">✓ Foto capturada</span>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 3: DETALLES DEL PRODUCTO -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+      <h2 class="font-bold text-gray-800 text-lg">3. Datos de Compra</h2>
+
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Nombre del Producto *</label>
+        <input type="text" id="producto" placeholder="Ej: Aceite Nutrioli 946ml" class="w-full mt-1 p-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Cantidad *</label>
+          <input type="number" id="cantidad" value="1" min="0.1" step="any" oninput="calcularTotal()" class="w-full mt-1 p-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Precio Unitario ($) *</label>
+          <input type="number" id="precio" placeholder="0.00" step="any" oninput="calcularTotal()" class="w-full mt-1 p-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+      </div>
+
+      <!-- Módulo de Total a Pagar -->
+      <div class="bg-blue-50 p-4 rounded-xl flex justify-between items-center border border-blue-100">
+        <span class="text-sm font-bold text-blue-900">Total a Pagar:</span>
+        <span id="total-pagar" class="text-2xl font-black text-blue-600">$0.00</span>
+      </div>
+
+      <!-- Switch de selección -->
+      <div class="flex items-center justify-between pt-2">
+        <span class="text-sm font-medium text-gray-700">¿Agregar a la cuenta actual?</span>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="seleccion" class="sr-only peer" checked>
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- BOTÓN DE ENVÍO -->
+    <button onclick="guardarRegistro()" id="btn-guardar" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition text-base">
+      💾 Guardar en Despensa GT
+    </button>
+
+  </main>
+
+  <script>
+    // ⚠️ REEMPLAZA ESTA URL CON LA QUE TE DIO APPS SCRIPT AL DESPLEGAR COMO WEB APP
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/TU_SCRIPT_ID_AQUI/exec";
+
+    let html5QrCode = null;
+    let fotoBase64 = "";
+    let userGps = "";
+
+    // 1. Obtener Ubicación GPS al cargar la página
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          userGps = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        },
+        err => console.log("GPS no disponible:", err)
+      );
+    }
+
+    // 2. Control del Escáner de Códigos de Barra
+    function iniciarEscaner() {
+      document.getElementById('btn-scan-start').classList.add('hidden');
+      document.getElementById('btn-scan-stop').classList.remove('hidden');
+
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+          document.getElementById('codigo').value = decodedText;
+          detenerEscaner();
+          // Opcional: Sonido Beep al escanear
+          const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
+          audio.play();
+        },
+        (errorMessage) => {}
+      ).catch(err => alert("Error al abrir cámara: " + err));
+    }
+
+    function detenerEscaner() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          html5QrCode.clear();
+          document.getElementById('btn-scan-
