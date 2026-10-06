@@ -3,350 +3,248 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DespensaGT</title>
-
-  <!-- LIBRERÍA DE ESCÁNER DE CÓDIGO DE BARRAS -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
+  <title>Lista de Compras y Productos</title>
   <style>
-    /* PREVENCIÓN DE RECARGA AL DESLIZAR HACIA ABAJO (PULL-TO-REFRESH) */
-    html, body { 
-      font-family: Arial, sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background-color: #9B111E; 
-      overscroll-behavior-y: contain; /* Bloquea el pull-to-refresh en Chrome y móviles */
+    :root {
+      --primary-color: #1a73e8;
+      --bg-color: #f4f6f9;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #e0e0e0;
+      --danger-color: #d93025;
     }
 
-    header { background-color: #9B111E; color: black; padding: 15px; text-align: center; }
-    .container { padding: 15px; max-width: 500px; margin: auto; padding-bottom: 80px; }
-    
-    .sticky-header {
-      position: sticky;
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 15px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin: 0;
+    }
+
+    .btn {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border: 1px solid var(--border-color);
+    }
+
+    .flex {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .thumb-img {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .btn-del-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      margin-left: 10px;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
       top: 0;
-      z-index: 20;
-      background-color: #9B111E;
-      padding-top: 5px;
-      padding-bottom: 5px;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
     }
 
-    .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .card-clickable { cursor: pointer; transition: background 0.2s; }
-    .card-clickable:hover { background-color: #f0f4f9; }
-    .flex { display: flex; justify-content: space-between; align-items: center; }
-    
-    .btn-floating { position: fixed; bottom: 70px; right: 20px; background-color: #ea4335; color: white; width: 56px; height: 56px; border-radius: 50%; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 10; }
-    
-    nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ccc; z-index: 10; }
-    nav button { flex: 1; padding: 12px; border: none; background: transparent; font-weight: bold; cursor: pointer; font-size: 13px; }
-    nav button.active { color: #1a73e8; border-top: 3px solid #1a73e8; }
-    .hidden { display: none !important; }
-
-    .modal-overlay { 
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      width: 100%; 
-      height: 100%; 
-      background: rgba(0,0,0,0.5); 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      z-index: 100; 
-      overflow-y: auto; 
-      overscroll-behavior: contain;
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 450px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
-    .modal-content { 
-      background: white; 
-      padding: 20px; 
-      border-radius: 12px; 
-      width: 90%; 
-      max-width: 400px; 
-      box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
-      max-height: 90vh; 
-      overflow-y: auto; 
-      overscroll-behavior: contain;
-    }
-    .modal-content label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; color: #333; }
-    .modal-content input[type="text"], 
-    .modal-content input[type="number"],
-    .modal-content input[type="datetime-local"] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-    
-    .input-with-btn { display: flex; gap: 5px; margin-top: 4px; }
-    .input-with-btn input { margin-top: 0 !important; }
-    .input-with-btn button { padding: 8px 12px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
-    .btn-pagar { background-color: #34a853; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
-    .btn-pagar:hover { background-color: #2d9247; }
-    .btn-guardar { width: 100%; padding: 10px; background-color: #ea4335; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
-    .btn-cancelar { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
-    .btn-eliminar { width: 100%; padding: 10px; background-color: #d93025; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
-    .btn-foto { width: 100%; padding: 10px; background-color: #fbbc04; color: #333; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
-    .btn-accion-rapida { background-color: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
-    .btn-del-icon { background: transparent; border: none; font-size: 18px; cursor: pointer; margin-left: 8px; padding: 4px; }
-    
-    .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-    .mapa-container { width: 100%; height: 160px; border-radius: 8px; border: 1px solid #ccc; margin-top: 6px; overflow: hidden; }
-    .mapa-container iframe { width: 100%; height: 100%; border: 0; }
-  
-    #scanner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; overscroll-behavior: contain; }
-    #reader { width: 320px; max-width: 95%; background: white; border-radius: 8px; overflow: hidden; }
-    .scanner-controls { width: 320px; max-width: 95%; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-    .badge-compra { background: #e6f4ea; color: #137333; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-    
-    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; margin-right: 10px; border: 1px solid #ddd; }
-    .preview-foto { width: 100%; max-height: 150px; object-fit: contain; margin-top: 8px; border-radius: 6px; border: 1px dashed #ccc; display: block; }
+    .hidden {
+      display: none !important;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
+
+    iframe {
+      width: 100%;
+      height: 150px;
+      border: 0;
+      border-radius: 6px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>DespensaGT</h1>
-  </header>
-
   <div class="container">
-    
-    <!-- VISTA 1: REGISTRO DE PRODUCTOS (LISTA) -->
-    <div id="vista-total">
-      <div class="sticky-header">
-        <div class="card flex" style="margin-bottom: 8px;">
-          <input type="text" id="buscar" placeholder="Buscar por nombre o código..." style="width: 75%; padding: 8px;" oninput="filtrarProductos()">
-          <button onclick="abrirEscaner('buscar')" style="padding: 8px; cursor: pointer;">🔍/📷</button>
-        </div>
+    <header>
+      <h1>Mi Lista de Compras</h1>
+      <button class="btn" onclick="abrirModal()">+ Nuevo</button>
+    </header>
 
-        <div class="card flex" style="background-color: #e8f0fe; margin-bottom: 8px;">
-          <div>
-            <span style="font-size: 12px; color: #555;">Total Seleccionado:</span>
-            <h2 id="total-monto" style="color: #1a73e8; margin: 0;">$0.00</h2>
-          </div>
-          <button id="btn-pagar" class="btn-pagar" onclick="procesarPago()">💳 PAGAR</button>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-          <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(false)">❌ Desmarcar todos</button>
-          <button type="button" class="btn-accion-rapida" onclick="cambiarSeleccionTodos(true)">✅ Seleccionar todos</button>
-        </div>
-      </div>
-
-      <div id="lista-productos"></div>
-
-      <button class="btn-floating" onclick="abrirModal()">+</button>
+    <!-- Buscador -->
+    <div class="form-group">
+      <input type="text" id="input-buscar" placeholder="Buscar producto por nombre o código..." oninput="filtrarProductos()">
     </div>
 
-    <!-- VISTA 2: COMPARADOR DE PRECIOS -->
-    <div id="vista-comparador" class="hidden">
-      <h2>Calculadora Proporcional</h2>
-      <div class="card">
-        <h3>Producto Base</h3>
-        <label for="g1">Gramos / Ml 1</label>
-        <input type="number" id="g1" placeholder="Ej. 900" style="width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
-        
-        <label for="p1">Precio 1 ($)</label>
-        <input type="number" id="p1" placeholder="Ej. 45.00" step="0.01" style="width: 100%; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
-      </div>
+    <!-- Lista de productos -->
+    <div id="lista-productos"></div>
 
-      <div class="card">
-        <h3>Producto a Comparar</h3>
-        <label for="g2">Gramos / Ml 2</label>
-        <input type="number" id="g2" placeholder="Ej. 1200" style="width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
-        
-        <label for="p2">Precio 2 Calculado ($)</label>
-        <input type="number" id="p2" placeholder="Se calcula en automático" disabled style="width: 100%; padding: 8px; background-color: #e9ecef; font-weight: bold; color: #1a73e8; box-sizing: border-box;">
-      </div>
-
-      <div id="resultado-comparador" style="margin-top: 15px; font-weight: bold; text-align: center; color: #333;">
-        Ingresa Gramos 1, Precio 1 y Gramos 2 para calcular.
-      </div>
+    <!-- Resumen -->
+    <div class="card" style="text-align: right; font-weight: bold; font-size: 1.1rem;">
+      Total Seleccionado: $<span id="total-monto">0.00</span>
     </div>
-
-    <!-- VISTA 3: HISTÓRICO DE COMPRAS -->
-    <div id="vista-historico" class="hidden">
-      <h2>Histórico de Compras</h2>
-      
-      <div class="sticky-header">
-        <div class="card flex" style="margin-bottom: 8px;">
-          <input type="text" id="buscar-historico" placeholder="Escanea o busca por código..." style="width: 75%; padding: 8px;" oninput="filtrarHistorico()">
-          <button onclick="abrirEscaner('buscar-historico')" style="padding: 8px; cursor: pointer;">📷/🔍</button>
-        </div>
-      </div>
-
-      <div id="lista-historico">
-        <p style="text-align:center; color:#777;">Cargando histórico...</p>
-      </div>
-    </div>
-
   </div>
 
-  <!-- MODAL PRODUCTO -->
-  <div id="modal-producto" class="modal-overlay hidden">
+  <!-- Modal Formulario -->
+  <div id="modal-producto" class="modal hidden">
     <div class="modal-content">
-      <h3 style="margin-top:0;" id="modal-titulo">Registro de Producto</h3>
+      <h2 id="modal-titulo" style="margin-top:0;">Registro de Producto</h2>
+      
       <form id="form-nuevo-producto" onsubmit="guardarProducto(event)">
-        
         <input type="hidden" id="p-id">
         <input type="hidden" id="p-foto-base64">
 
-        <label for="p-nombre">Producto *</label>
-        <input type="text" id="p-nombre" required placeholder="Ej. Aceite Nutrioli 946ml">
-
-        <label for="p-codigo">Código *</label>
-        <div class="input-with-btn">
-          <input type="text" id="p-codigo" required placeholder="Código de barras">
-          <button type="button" onclick="abrirEscaner('p-codigo')">📷</button>
+        <div class="form-group">
+          <label>Producto:</label>
+          <input type="text" id="p-nombre" required>
         </div>
 
-        <label>Foto del Producto</label>
-        <input type="file" id="input-camara" accept="image/*" capture="environment" style="display:none;" onchange="procesarFoto(event)">
-        <button type="button" class="btn-foto" onclick="document.getElementById('input-camara').click()">📷 Tomar / Subir Foto</button>
-        <img id="preview-foto" class="preview-foto hidden" alt="Vista previa">
-
-        <label for="p-cantidad">Cantidad *</label>
-        <input type="number" id="p-cantidad" value="1" step="0.01" required>
-
-        <label for="p-precio">Precio *</label>
-        <input type="number" id="p-precio" step="0.01" placeholder="0.00" required>
-
-        <div class="switch-container">
-          <label for="p-seleccion" style="margin:0;">¿Comprar? (Selección)</label>
-          <input type="checkbox" id="p-seleccion" style="transform: scale(1.3);">
+        <div class="form-group">
+          <label>Código:</label>
+          <input type="text" id="p-codigo">
         </div>
 
-        <label for="p-fecha">Fecha y Hora *</label>
-        <input type="datetime-local" id="p-fecha" required readonly style="background-color: #eee;">
-
-        <label for="p-gps">GPS *</label>
-        <input type="text" id="p-gps" placeholder="Obteniendo ubicación..." readonly style="background-color: #eee;">
-        
-        <div class="mapa-container" id="mapa-wrapper">
-          <iframe id="iframe-mapa" src="about:blank"></iframe>
+        <div style="display: flex; gap: 10px;">
+          <div class="form-group" style="flex: 1;">
+            <label>Cantidad:</label>
+            <input type="number" id="p-cantidad" value="1" min="1" required>
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>Precio ($):</label>
+            <input type="number" step="0.01" id="p-precio" value="0.00" required>
+          </div>
         </div>
 
-        <button type="submit" id="btn-submit" class="btn-guardar">Guardar</button>
-        <button type="button" id="btn-eliminar-modal" class="btn-eliminar hidden" onclick="eliminarProductoDesdeModal()">🗑️ Eliminar Producto</button>
-        <button type="button" class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="p-seleccion"> Marcar como seleccionado
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Fecha y Hora:</label>
+          <input type="datetime-local" id="p-fecha">
+        </div>
+
+        <div class="form-group">
+          <label>Fotografía:</label>
+          <input type="file" accept="image/*" onchange="convertirImagenBase64(event)">
+          <img id="preview-foto" class="preview-img hidden">
+        </div>
+
+        <div class="form-group">
+          <label>Ubicación (GPS):</label>
+          <input type="text" id="p-gps" readonly>
+          <iframe id="mapa-iframe" class="hidden"></iframe>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+          <button type="button" class="btn btn-danger hidden" id="btn-eliminar-modal" onclick="eliminarDesdeModal()">Eliminar</button>
+          <div>
+            <button type="button" class="btn" style="background-color: #666;" onclick="cerrarModal()">Cancelar</button>
+            <button type="submit" class="btn">Guardar</button>
+          </div>
+        </div>
       </form>
     </div>
   </div>
 
-  <!-- ESCÁNER DE CÓDIGO DE BARRAS -->
-  <div id="scanner-overlay" class="hidden">
-    <div id="reader"></div>
-    <div class="scanner-controls">
-      <select id="camera-select" onchange="cambiarCamara()"></select>
-      <button type="button" class="btn-cancelar" onclick="cerrarEscaner()">Cerrar Cámara</button>
-    </div>
-  </div>
-
-  <nav>
-    <button id="tab-total" class="active" onclick="cambiarVista('total')">Lista</button>
-    <button id="tab-comparador" onclick="cambiarVista('comparador')">Comparador</button>
-    <button id="tab-historico" onclick="cambiarVista('historico')">Histórico</button>
-  </nav>
-
   <script>
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbyCS4fKIk7G87RDfbJg1L2ooSRuYGSorNhuVPUuzOEx8tnP-k33bOmx2xpI3ZOmNd3f/exec";
+    // Datos iniciales de prueba
+    let productos = [
+      { id: "1", producto: "Leche Entera", codigo: "101", cantidad: 2, precio: 25.50, seleccion: true, fecha: "", gps: "", foto: "" },
+      { id: "2", producto: "Pan Integral", codigo: "102", cantidad: 1, precio: 38.00, seleccion: false, fecha: "", gps: "", foto: "" }
+    ];
 
-    let productos = [];
-    let historico = [];
-    let html5QrcodeScanner = null;
-    let targetInputId = "";
-
-    document.addEventListener("DOMContentLoaded", function() {
-      cargarProductosDesdeSheets();
-      cargarHistoricoDesdeSheets();
+    document.addEventListener("DOMContentLoaded", () => {
+      renderizarLista();
     });
 
-    async function cargarProductosDesdeSheets() {
-      const contenedor = document.getElementById('lista-productos');
-      contenedor.innerHTML = '<p style="text-align:center; color:#777;">Cargando productos...</p>';
-
-      try {
-        const respuesta = await fetch(`${URL_GOOGLE_SCRIPT}?action=getProductos`);
-        const resultado = await respuesta.json();
-
-        if (resultado.result === "success") {
-          productos = resultado.data; // Conserva el valor real guardado de selección
-          filtrarProductos();
-        } else {
-          contenedor.innerHTML = '<p style="text-align:center; color:red;">Error al cargar productos.</p>';
-        }
-      } catch (error) {
-        console.error("Error consultando Sheets:", error);
-        contenedor.innerHTML = '<p style="text-align:center; color:red;">No se pudieron cargar los datos.</p>';
-      }
-    }
-
-    async function cargarHistoricoDesdeSheets() {
-      const contenedor = document.getElementById('lista-historico');
-      try {
-        const respuesta = await fetch(`${URL_GOOGLE_SCRIPT}?action=getHistorico`);
-        const resultado = await respuesta.json();
-
-        if (resultado.result === "success") {
-          historico = resultado.data;
-          filtrarHistorico();
-        }
-      } catch (error) {
-        console.error("Error consultando Histórico:", error);
-      }
-    }
-
-    function cambiarVista(vista) {
-      document.getElementById('vista-total').classList.add('hidden');
-      document.getElementById('vista-comparador').classList.add('hidden');
-      document.getElementById('vista-historico').classList.add('hidden');
-      
-      document.getElementById('tab-total').classList.remove('active');
-      document.getElementById('tab-comparador').classList.remove('active');
-      document.getElementById('tab-historico').classList.remove('active');
-
-      if (vista === 'total') {
-        document.getElementById('vista-total').classList.remove('hidden');
-        document.getElementById('tab-total').classList.add('active');
-        filtrarProductos();
-      } else if (vista === 'comparador') {
-        document.getElementById('vista-comparador').classList.remove('hidden');
-        document.getElementById('tab-comparador').classList.add('active');
-      } else if (vista === 'historico') {
-        document.getElementById('vista-historico').classList.remove('hidden');
-        document.getElementById('tab-historico').classList.add('active');
-        cargarHistoricoDesdeSheets();
-      }
-    }
-
-    async function toggleSeleccion(index) {
-      productos[index].seleccion = !productos[index].seleccion;
-      filtrarProductos();
-
-      // Guardar cambio en segundo plano en la hoja de cálculo
-      try {
-        await fetch(URL_GOOGLE_SCRIPT, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "guardarProducto",
-            producto: productos[index]
-          })
-        });
-      } catch (e) {
-        console.error("Error guardando selección:", e);
-      }
-    }
-
-    function cambiarSeleccionTodos(estado) {
-      productos.forEach(p => p.seleccion = estado);
-      filtrarProductos();
-    }
-
-    function actualizarTotal() {
-      const total = productos.reduce((suma, p) => {
-        return p.seleccion ? suma + (parseFloat(p.cantidad || 1) * parseFloat(p.precio || 0)) : suma;
-      }, 0);
-
-      document.getElementById('total-monto').innerText = `$${total.toFixed(2)}`;
-    }
-
+    // Renderiza la lista con eventos corregidos para clic de edición
     function renderizarLista(lista = productos) {
       const contenedor = document.getElementById('lista-productos');
       contenedor.innerHTML = '';
@@ -363,23 +261,27 @@
       });
 
       listaOrdenada.forEach((p) => {
-        const indexReal = productos.findIndex(prod => prod.id === p.id);
+        const indexReal = productos.findIndex(prod => String(prod.id) === String(p.id));
         const esSeleccionado = p.seleccion === true;
         const fotoHtml = p.foto ? `<img src="${p.foto}" class="thumb-img">` : '';
 
         contenedor.innerHTML += `
-          <div class="card card-clickable flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
+          <div class="card flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
             ${fotoHtml}
-            <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
-              <strong>${p.producto || p.nombre}</strong><br>
-              <small>Código: ${p.codigo}</small><br>
+            
+            <!-- Clic directo en el bloque de texto para abrir el modal -->
+            <div style="flex-grow: 1; cursor: pointer;" onclick="abrirModal('${p.id}')">
+              <strong style="font-size: 16px; color: #1a73e8; text-decoration: underline;">${p.producto || p.nombre}</strong><br>
+              <small>Código: ${p.codigo || 'S/C'}</small><br>
               <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio || 0).toFixed(2)}</small>
             </div>
+
+            <!-- Contenedor independiente de botones para evitar interferencia -->
             <div style="display: flex; align-items: center;" onclick="event.stopPropagation();">
               <label style="cursor: pointer; font-weight: bold; color: ${esSeleccionado ? '#1a73e8' : '#666'};">
                 <input type="checkbox" ${esSeleccionado ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
               </label>
-              <button class="btn-del-icon" title="Eliminar" onclick="eliminarProducto(${p.id})">🗑️</button>
+              <button class="btn-del-icon" title="Eliminar" onclick="eliminarProducto('${p.id}')">🗑️</button>
             </div>
           </div>
         `;
@@ -388,233 +290,23 @@
       actualizarTotal();
     }
 
-    function renderizarHistorico(lista = historico) {
-      const contenedor = document.getElementById('lista-historico');
-      contenedor.innerHTML = '';
-
-      if (!lista || lista.length === 0) {
-        contenedor.innerHTML = '<p style="text-align:center; color:#777;">No se encontraron registros en el histórico.</p>';
-        return;
-      }
-
-      const ordenado = [...lista].reverse();
-
-      ordenado.forEach(h => {
-        const totalCompra = (parseFloat(h.cantidad || 1) * parseFloat(h.precio || 0)).toFixed(2);
-        const mapUrl = h.gps && String(h.gps).includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(h.gps)}` : null;
-
-        contenedor.innerHTML += `
-          <div class="card">
-            <div class="flex">
-              <strong>${h.producto || h.nombre || 'Producto'}</strong>
-              <span class="badge-compra">Comprado</span>
-            </div>
-            <div style="font-size: 13px; color: #555; margin-top: 5px;">
-              <strong>Código:</strong> ${h.codigo}<br>
-              <strong>Fecha:</strong> ${h.fecha || 'N/D'}<br>
-              <strong>Cantidad:</strong> ${h.cantidad} | <strong>Precio Unitario:</strong> $${parseFloat(h.precio || 0).toFixed(2)}<br>
-              <strong>Total pagado:</strong> <span style="color:#1a73e8; font-weight:bold;">$${totalCompra}</span><br>
-              <strong>Ubicación:</strong> ${h.gps || 'Sin GPS'} 
-              ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[Ver Mapa 📍]</a>` : ''}
-            </div>
-          </div>
-        `;
-      });
-    }
-
-    function filtrarProductos() {
-      const texto = (document.getElementById('buscar').value || '').trim().toLowerCase();
-      if (!texto) {
-        renderizarLista(productos);
-        return;
-      }
-      const filtrados = productos.filter(p => {
-        const nombre = (p.producto || p.nombre || '').toString().toLowerCase();
-        const codigo = (p.codigo || '').toString().toLowerCase();
-        return nombre.includes(texto) || codigo.includes(texto);
-      });
-      renderizarLista(filtrados);
-    }
-
-    function filtrarHistorico() {
-      const texto = (document.getElementById('buscar-historico').value || '').trim().toLowerCase();
-      if (!texto) {
-        renderizarHistorico(historico);
-        return;
-      }
-      const filtrados = historico.filter(h => {
-        const nombre = (h.producto || h.nombre || '').toString().toLowerCase();
-        const codigo = (h.codigo || '').toString().toLowerCase();
-        return nombre.includes(texto) || codigo.includes(texto);
-      });
-      renderizarHistorico(filtrados);
-    }
-
-    async function procesarPago() {
-      const seleccionados = productos.filter(p => p.seleccion === true);
-
-      if (seleccionados.length === 0) {
-        alert("Por favor, selecciona al menos un producto para pagar.");
-        return;
-      }
-
-      const btnPagar = document.getElementById('btn-pagar');
-      btnPagar.disabled = true;
-      btnPagar.innerText = "Procesando...";
-
-      let ubicacionGps = "Ubicación no disponible";
-      if (navigator.geolocation) {
-        try {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
-          });
-          ubicacionGps = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-        } catch (e) {
-          console.warn("GPS no disponible:", e);
-        }
-      }
-
-      try {
-        await fetch(URL_GOOGLE_SCRIPT, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "registrarCompra",
-            productos: seleccionados,
-            gps: ubicacionGps
-          })
-        });
-
-        alert(`¡Compra registrada! Se guardaron ${seleccionados.length} productos en HISTORICO.`);
-
-        productos.forEach(p => p.seleccion = false);
-        filtrarProductos();
-      } catch (error) {
-        console.error("Error al registrar el pago:", error);
-        alert("Ocurrió un error al intentar procesar el pago.");
-      } finally {
-        btnPagar.disabled = false;
-        btnPagar.innerText = "💳 PAGAR";
-      }
-    }
-
-    function procesarFoto(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          const maxDim = 500;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxDim) {
-              height *= maxDim / width;
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width *= maxDim / height;
-              height = maxDim;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          const base64Data = canvas.toDataURL('image/jpeg', 0.6);
-          document.getElementById('p-foto-base64').value = base64Data;
-          
-          const preview = document.getElementById('preview-foto');
-          preview.src = base64Data;
-          preview.classList.remove('hidden');
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function abrirEscaner(inputId) {
-      targetInputId = inputId;
-      document.getElementById('scanner-overlay').classList.remove('hidden');
-
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          const select = document.getElementById('camera-select');
-          select.innerHTML = '';
-          devices.forEach((cam, idx) => {
-            const opt = document.createElement('option');
-            opt.value = cam.id;
-            opt.text = cam.label || `Cámara ${idx + 1}`;
-            select.appendChild(opt);
-          });
-          const camaraInicial = devices[devices.length - 1].id;
-          select.value = camaraInicial;
-          iniciarCamara(camaraInicial);
-        }
-      }).catch(() => iniciarCamara({ facingMode: "environment" }));
-    }
-
-    function iniciarCamara(cameraIdOrConfig) {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop().then(() => iniciarInstancia(cameraIdOrConfig)).catch(() => iniciarInstancia(cameraIdOrConfig));
-      } else {
-        iniciarInstancia(cameraIdOrConfig);
-      }
-    }
-
-    function iniciarInstancia(cameraIdOrConfig) {
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      html5QrcodeScanner.start(
-        cameraIdOrConfig,
-        { fps: 15, qrbox: { width: 280, height: 160 } },
-        (decodedText) => {
-          document.getElementById(targetInputId).value = decodedText;
-          cerrarEscaner();
-          if (targetInputId === 'buscar') filtrarProductos();
-          if (targetInputId === 'buscar-historico') filtrarHistorico();
-        }
-      ).catch(err => console.warn(err));
-    }
-
-    function cambiarCamara() {
-      const selectedId = document.getElementById('camera-select').value;
-      if (selectedId) iniciarCamara(selectedId);
-    }
-
-    function cerrarEscaner() {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop().then(() => {
-          html5QrcodeScanner.clear();
-          document.getElementById('scanner-overlay').classList.add('hidden');
-        }).catch(() => document.getElementById('scanner-overlay').classList.add('hidden'));
-      } else {
-        document.getElementById('scanner-overlay').classList.add('hidden');
-      }
-    }
-
+    // Abre el modal para Crear o Editar (soporta IDs numéricos y cadenas)
     function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
       const preview = document.getElementById('preview-foto');
       const btnEliminar = document.getElementById('btn-eliminar-modal');
 
-      if (idProducto) {
-        const p = productos.find(prod => prod.id == idProducto);
+      if (idProducto !== null && idProducto !== undefined && idProducto !== '') {
+        const p = productos.find(prod => String(prod.id) === String(idProducto));
+        
         if (p) {
           document.getElementById('modal-titulo').innerText = "Editar Producto";
           document.getElementById('p-id').value = p.id;
-          document.getElementById('p-nombre').value = p.producto || p.nombre;
-          document.getElementById('p-codigo').value = p.codigo;
-          document.getElementById('p-cantidad').value = p.cantidad;
-          document.getElementById('p-precio').value = p.precio;
-          document.getElementById('p-seleccion').checked = p.seleccion;
+          document.getElementById('p-nombre').value = p.producto || p.nombre || '';
+          document.getElementById('p-codigo').value = p.codigo || '';
+          document.getElementById('p-cantidad').value = p.cantidad || 1;
+          document.getElementById('p-precio').value = p.precio || 0;
+          document.getElementById('p-seleccion').checked = Boolean(p.seleccion);
           document.getElementById('p-fecha').value = p.fecha || "";
           document.getElementById('p-gps').value = p.gps || "";
           document.getElementById('p-foto-base64').value = p.foto || "";
@@ -628,11 +320,12 @@
             preview.classList.add('hidden');
           }
 
-          if (p.gps && p.gps.includes(',')) {
+          if (p.gps && String(p.gps).includes(',')) {
             actualizarMapaIframe(p.gps);
           }
         }
       } else {
+        // Nuevo Producto
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
         document.getElementById('form-nuevo-producto').reset();
         document.getElementById('p-id').value = "";
@@ -657,38 +350,18 @@
       }
     }
 
-    function actualizarMapaIframe(coords) {
-      const iframe = document.getElementById('iframe-mapa');
-      iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(coords)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-    }
-
     function cerrarModal() {
       document.getElementById('modal-producto').classList.add('hidden');
-      document.getElementById('form-nuevo-producto').reset();
     }
 
-    async function guardarProducto(event) {
-      event.preventDefault();
-
-      const idExistente = document.getElementById('p-id').value;
-      const codigoIngresado = document.getElementById('p-codigo').value.trim();
-
-      const coincideCodigo = productos.find(p => String(p.codigo).trim() === codigoIngresado && String(p.id) !== String(idExistente));
-
-      if (coincideCodigo) {
-        alert(`⚠️ El producto ya está capturado:\n\nNombre: ${coincideCodigo.producto || coincideCodigo.nombre}\nCódigo: ${coincideCodigo.codigo}\n\nPor favor, busca el producto existente en la lista para editarlo o cambia el código.`);
-        return;
-      }
-
-      const btnSubmit = document.getElementById('btn-submit');
-      btnSubmit.innerText = "Guardando...";
-      btnSubmit.disabled = true;
-
-      const productoObj = {
-        id: idExistente ? parseInt(idExistente) : Date.now(),
+    function guardarProducto(e) {
+      e.preventDefault();
+      const id = document.getElementById('p-id').value;
+      const nuevoProducto = {
+        id: id || Date.now().toString(),
         producto: document.getElementById('p-nombre').value,
-        codigo: codigoIngresado,
-        cantidad: parseFloat(document.getElementById('p-cantidad').value) || 1,
+        codigo: document.getElementById('p-codigo').value,
+        cantidad: parseInt(document.getElementById('p-cantidad').value) || 1,
         precio: parseFloat(document.getElementById('p-precio').value) || 0,
         seleccion: document.getElementById('p-seleccion').checked,
         fecha: document.getElementById('p-fecha').value,
@@ -696,83 +369,74 @@
         foto: document.getElementById('p-foto-base64').value
       };
 
-      try {
-        await fetch(URL_GOOGLE_SCRIPT, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "guardarProducto",
-            producto: productoObj
-          })
-        });
+      if (id) {
+        const index = productos.findIndex(p => String(p.id) === String(id));
+        if (index !== -1) productos[index] = nuevoProducto;
+      } else {
+        productos.push(nuevoProducto);
+      }
 
-        setTimeout(() => {
-          cargarProductosDesdeSheets();
-        }, 1200);
+      cerrarModal();
+      renderizarLista();
+    }
 
-        cerrarModal();
-      } catch (error) {
-        console.error("Error al guardar el producto:", error);
-        alert("Hubo un error guardando el producto en Google Sheets.");
-      } finally {
-        btnSubmit.innerText = "Guardar";
-        btnSubmit.disabled = false;
+    function toggleSeleccion(index) {
+      if (productos[index]) {
+        productos[index].seleccion = !productos[index].seleccion;
+        renderizarLista();
       }
     }
 
-    async function eliminarProducto(id) {
-      const prod = productos.find(p => p.id == id);
-      const nombre = prod ? (prod.producto || prod.nombre) : "este producto";
-
-      if (!confirm(`¿Estás seguro de que deseas eliminar "${nombre}"?`)) {
-        return;
-      }
-
-      try {
-        await fetch(URL_GOOGLE_SCRIPT, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "eliminarProducto",
-            id: id
-          })
-        });
-
-        productos = productos.filter(p => p.id != id);
-        filtrarProductos();
-      } catch (e) {
-        console.error("Error eliminando producto:", e);
-        alert("Ocurrió un error al intentar eliminar el producto.");
+    function eliminarProducto(id) {
+      if (confirm("¿Deseas eliminar este producto?")) {
+        productos = productos.filter(p => String(p.id) !== String(id));
+        renderizarLista();
       }
     }
 
-    function eliminarProductoDesdeModal() {
+    function eliminarDesdeModal() {
       const id = document.getElementById('p-id').value;
       if (id) {
-        cerrarModal();
         eliminarProducto(id);
+        cerrarModal();
       }
     }
 
-    function calcularPrecio2() {
-      const g1 = parseFloat(document.getElementById('g1').value) || 0;
-      const p1 = parseFloat(document.getElementById('p1').value) || 0;
-      const g2 = parseFloat(document.getElementById('g2').value) || 0;
-      const inputP2 = document.getElementById('p2');
-      const divResultado = document.getElementById('resultado-comparador');
+    function filtrarProductos() {
+      const query = document.getElementById('input-buscar').value.toLowerCase();
+      const filtrados = productos.filter(p => 
+        (p.producto && p.producto.toLowerCase().includes(query)) ||
+        (p.codigo && p.codigo.toLowerCase().includes(query))
+      );
+      renderizarLista(filtrados);
+    }
 
-      if (g1 > 0 && p1 > 0 && g2 > 0) {
-        const precioCalculado = (p1 * g2) / g1;
-        inputP2.value = precioCalculado.toFixed(2);
-        divResultado.innerHTML = `Para que ${g2}g/ml sea equivalente, debe costar <strong>$${precioCalculado.toFixed(2)}</strong> o menos.`;
-      } else {
-        inputP2.value = '';
-        divResultado.innerText = 'Ingresa Gramos 1, Precio 1 y Gramos 2 para calcular.';
+    function actualizarTotal() {
+      const total = productos
+        .filter(p => p.seleccion)
+        .reduce((sum, p) => sum + (parseFloat(p.precio || 0) * (parseInt(p.cantidad) || 1)), 0);
+      document.getElementById('total-monto').innerText = total.toFixed(2);
+    }
+
+    function convertirImagenBase64(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('p-foto-base64').value = e.target.result;
+          const preview = document.getElementById('preview-foto');
+          preview.src = e.target.result;
+          preview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
       }
+    }
+
+    function actualizarMapaIframe(coords) {
+      const iframe = document.getElementById('mapa-iframe');
+      iframe.src = `https://maps.google.com/maps?q=${coords}&z=15&output=embed`;
+      iframe.classList.remove('hidden');
     }
   </script>
-
 </body>
 </html>
