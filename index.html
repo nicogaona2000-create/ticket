@@ -96,21 +96,32 @@
       <button class="btn-floating" onclick="abrirModal()">+</button>
     </div>
 
-    <!-- VISTA 2: COMPARADOR DE PRECIOS -->
+    <!-- VISTA 2: COMPARADOR DE PRECIOS CON CÁLCULO AUTOMÁTICO -->
     <div id="vista-comparador" class="hidden">
-      <h2>Comparador de Precios</h2>
+      <h2>Calculadora de Precio Proporcional</h2>
+      
       <div class="card">
-        <h3>Producto 1</h3>
-        <input type="number" id="g1" placeholder="Gramos / Ml" style="width: 100%; margin-bottom: 8px; padding: 6px;">
-        <input type="number" id="p1" placeholder="Precio ($)" style="width: 100%; padding: 6px;">
+        <h3>Producto Base (Referencia)</h3>
+        <label for="g1">Gramos / Ml 1 *</label>
+        <input type="number" id="g1" placeholder="Ej. 900" style="width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
+        
+        <label for="p1">Precio 1 ($) *</label>
+        <input type="number" id="p1" placeholder="Ej. 45.00" step="0.01" style="width: 100%; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
       </div>
+
       <div class="card">
-        <h3>Producto 2</h3>
-        <input type="number" id="g2" placeholder="Gramos / Ml" style="width: 100%; margin-bottom: 8px; padding: 6px;">
-        <input type="number" id="p2" placeholder="Precio ($)" style="width: 100%; padding: 6px;">
+        <h3>Producto a Comparar</h3>
+        <label for="g2">Gramos / Ml 2 *</label>
+        <input type="number" id="g2" placeholder="Ej. 1200" style="width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;" oninput="calcularPrecio2()">
+        
+        <label for="p2">Precio 2 Calculado ($)</label>
+        <!-- CAMPO INHABILITADO PARA EDITAR -->
+        <input type="number" id="p2" placeholder="Se calcula en automático" disabled style="width: 100%; padding: 8px; background-color: #e9ecef; font-weight: bold; color: #1a73e8; box-sizing: border-box;">
       </div>
-      <button style="width: 100%; padding: 10px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; cursor: pointer;" onclick="comparar()">Calcular cuál conviene</button>
-      <div id="resultado-comparador" style="margin-top: 15px; font-weight: bold; text-align: center;"></div>
+
+      <div id="resultado-comparador" style="margin-top: 15px; font-weight: bold; text-align: center; color: #333; line-height: 1.5;">
+        Ingresa Gramos 1, Precio 1 y Gramos 2 para calcular el precio equivalente.
+      </div>
     </div>
 
   </div>
@@ -229,8 +240,8 @@
       } else {
         document.getElementById('vista-total').classList.add('hidden');
         document.getElementById('vista-comparador').classList.remove('hidden');
-        document.getElementById('tab-total').classList.add('active');
-        document.getElementById('tab-comparador').classList.remove('active');
+        document.getElementById('tab-total').classList.remove('active');
+        document.getElementById('tab-comparador').classList.add('active');
       }
     }
 
@@ -446,7 +457,6 @@
       cerrarModal();
     }
 
-    /* RENDERIZADO CON ORDENAMIENTO (SELECCIONADOS PRIMERO) */
     function renderizarLista(lista = productos) {
       const contenedor = document.getElementById('lista-productos');
       contenedor.innerHTML = '';
@@ -457,7 +467,6 @@
         return;
       }
 
-      // ORDENAR: Los marcados (true) van primero que los desmarcados (false)
       const listaOrdenada = [...lista].sort((a, b) => (b.seleccion === true ? 1 : 0) - (a.seleccion === true ? 1 : 0));
 
       listaOrdenada.forEach((p) => {
@@ -483,7 +492,7 @@
 
     function toggleSeleccion(index) {
       productos[index].seleccion = !productos[index].seleccion;
-      renderizarLista(); // Vuelve a renderizar para reorganizar los elementos de inmediato
+      renderizarLista();
       
       fetch(URL_GOOGLE_SCRIPT, {
         method: 'POST',
@@ -515,24 +524,30 @@
       document.getElementById('total-monto').innerText = `$${total.toFixed(2)}`;
     }
 
-    function comparar() {
+    /* NUEVA LÓGICA DE CÁLCULO AUTOMÁTICO EN EL COMPARADOR */
+    function calcularPrecio2() {
       const g1 = parseFloat(document.getElementById('g1').value) || 0;
       const p1 = parseFloat(document.getElementById('p1').value) || 0;
       const g2 = parseFloat(document.getElementById('g2').value) || 0;
-      const p2 = parseFloat(document.getElementById('p2').value) || 0;
+      const inputP2 = document.getElementById('p2');
+      const divResultado = document.getElementById('resultado-comparador');
 
-      if (g1 > 0 && p1 > 0 && g2 > 0 && p2 > 0) {
-        const u1 = p1 / g1;
-        const u2 = p2 / g2;
-        if (u1 < u2) {
-          document.getElementById('resultado-comparador').innerText = "Conviene más el Producto 1 (más barato por unidad)";
-        } else if (u2 < u1) {
-          document.getElementById('resultado-comparador').innerText = "Conviene más el Producto 2 (más barato por unidad)";
-        } else {
-          document.getElementById('resultado-comparador').innerText = "Cuestan exactamente lo mismo por unidad";
-        }
+      if (g1 > 0 && p1 > 0 && g2 > 0) {
+        // Cálculo de regla de tres (proporción directa)
+        const precioCalculado = (p1 * g2) / g1;
+        const costoPorUnidad = p1 / g1;
+
+        inputP2.value = precioCalculado.toFixed(2);
+
+        divResultado.innerHTML = `
+          <div style="background-color: #e8f0fe; padding: 10px; border-radius: 6px; border: 1px solid #1a73e8;">
+            <p style="margin: 0; color: #1a73e8;">💡 <strong>Costo base:</strong> $${costoPorUnidad.toFixed(4)} por g/ml</p>
+            <p style="margin: 5px 0 0 0; font-size: 15px;">Para que ${g2}g/ml sea una oferta equivalente, debe costar <strong>$${precioCalculado.toFixed(2)}</strong> o menos.</p>
+          </div>
+        `;
       } else {
-        document.getElementById('resultado-comparador').innerText = "Ingresa todos los datos para comparar";
+        inputP2.value = '';
+        divResultado.innerText = 'Ingresa Gramos 1, Precio 1 y Gramos 2 para calcular el precio equivalente.';
       }
     }
   </script>
