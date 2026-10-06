@@ -49,6 +49,7 @@
     .btn-pagar:hover { background-color: #2d9247; }
     .btn-guardar { width: 100%; padding: 10px; background-color: #ea4335; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-cancelar { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
+    .btn-foto { width: 100%; padding: 10px; background-color: #fbbc04; color: #333; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
     .btn-accion-rapida { background-color: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
     
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
@@ -59,6 +60,9 @@
     #reader { width: 320px; max-width: 95%; background: white; border-radius: 8px; overflow: hidden; }
     .scanner-controls { width: 320px; max-width: 95%; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
     .badge-compra { background: #e6f4ea; color: #137333; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    
+    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; margin-right: 10px; border: 1px solid #ddd; }
+    .preview-foto { width: 100%; max-height: 150px; object-fit: contain; margin-top: 8px; border-radius: 6px; border: 1px dashed #ccc; display: block; }
   </style>
 </head>
 <body>
@@ -82,7 +86,6 @@
             <span style="font-size: 12px; color: #555;">Total Seleccionado:</span>
             <h2 id="total-monto" style="color: #1a73e8; margin: 0;">$0.00</h2>
           </div>
-          <!-- BOTÓN PAGAR -->
           <button id="btn-pagar" class="btn-pagar" onclick="procesarPago()">💳 PAGAR</button>
         </div>
 
@@ -148,6 +151,7 @@
       <form id="form-nuevo-producto" onsubmit="guardarProducto(event)">
         
         <input type="hidden" id="p-id">
+        <input type="hidden" id="p-foto-base64">
 
         <label for="p-nombre">Producto *</label>
         <input type="text" id="p-nombre" required placeholder="Ej. Aceite Nutrioli 946ml">
@@ -157,6 +161,12 @@
           <input type="text" id="p-codigo" required placeholder="Código de barras">
           <button type="button" onclick="abrirEscaner('p-codigo')">📷</button>
         </div>
+
+        <!-- CAMPO DE FOTO DEL PRODUCTO -->
+        <label>Foto del Producto</label>
+        <input type="file" id="input-camara" accept="image/*" capture="environment" style="display:none;" onchange="procesarFoto(event)">
+        <button type="button" class="btn-foto" onclick="document.getElementById('input-camara').click()">📷 Tomar / Subir Foto</button>
+        <img id="preview-foto" class="preview-foto hidden" alt="Vista previa">
 
         <label for="p-cantidad">Cantidad *</label>
         <input type="number" id="p-cantidad" value="1" step="0.01" required>
@@ -201,7 +211,7 @@
   </nav>
 
   <script>
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbyW_Iy9MkEOOTWgePEYvYSSqrQ0akGFWw0bf2KGWfo77MMNQL3J6KNbc_6aALaAI7UZjA/exec";
+    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbxm8FUrsJzEmSknU6ame89qn3gFaN5hF-bI4lvFhkhwgDhoF9Qb2N0bv0dZ6Nmxvj8f5A/exec";
 
     let productos = [];
     let historico = [];
@@ -271,7 +281,6 @@
       }
     }
 
-    /* SELECCIÓN Y BÚSQUEDA */
     function toggleSeleccion(index) {
       productos[index].seleccion = !productos[index].seleccion;
       filtrarProductos();
@@ -290,7 +299,6 @@
       document.getElementById('total-monto').innerText = `$${total.toFixed(2)}`;
     }
 
-    /* RENDERIZADO DE LISTA (SELECCIONADOS ARRIBA) */
     function renderizarLista(lista = productos) {
       const contenedor = document.getElementById('lista-productos');
       contenedor.innerHTML = '';
@@ -301,7 +309,6 @@
         return;
       }
 
-      // Ordenar: Seleccionados (Comprar === true) ARRIBA, no seleccionados ABAJO
       const listaOrdenada = [...lista].sort((a, b) => {
         if (a.seleccion === b.seleccion) return 0;
         return a.seleccion ? -1 : 1;
@@ -310,9 +317,11 @@
       listaOrdenada.forEach((p) => {
         const indexReal = productos.findIndex(prod => prod.id === p.id);
         const esSeleccionado = p.seleccion === true;
+        const fotoHtml = p.foto ? `<img src="${p.foto}" class="thumb-img">` : '';
 
         contenedor.innerHTML += `
           <div class="card card-clickable flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
+            ${fotoHtml}
             <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
               <strong>${p.producto || p.nombre}</strong><br>
               <small>Código: ${p.codigo}</small><br>
@@ -330,7 +339,6 @@
       actualizarTotal();
     }
 
-    /* RENDERIZADO DE HISTÓRICO */
     function renderizarHistorico(lista = historico) {
       const contenedor = document.getElementById('lista-historico');
       contenedor.innerHTML = '';
@@ -365,7 +373,6 @@
       });
     }
 
-    /* BÚSQUEDAS EN TIEMPO REAL */
     function filtrarProductos() {
       const texto = (document.getElementById('buscar').value || '').trim().toLowerCase();
       if (!texto) {
@@ -394,7 +401,6 @@
       renderizarHistorico(filtrados);
     }
 
-    /* BOTÓN PAGAR */
     async function procesarPago() {
       const seleccionados = productos.filter(p => p.seleccion === true);
 
@@ -433,7 +439,6 @@
 
         alert(`¡Compra registrada! Se guardaron ${seleccionados.length} productos en HISTORICO.`);
 
-        // Desmarcar todos tras pagar
         productos.forEach(p => p.seleccion = false);
         filtrarProductos();
       } catch (error) {
@@ -445,7 +450,50 @@
       }
     }
 
-    /* ESCÁNER DE CÓDIGO DE BARRAS */
+    /* CAPTURA Y COMPRESIÓN DE FOTO */
+    function procesarFoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const maxDim = 400; // Redimensionar máximo a 400px
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height *= maxDim / width;
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compresión JPEG a 0.6
+          const base64Data = canvas.toDataURL('image/jpeg', 0.6);
+          document.getElementById('p-foto-base64').value = base64Data;
+          
+          const preview = document.getElementById('preview-foto');
+          preview.src = base64Data;
+          preview.classList.remove('hidden');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
     function abrirEscaner(inputId) {
       targetInputId = inputId;
       document.getElementById('scanner-overlay').classList.remove('hidden');
@@ -505,9 +553,9 @@
       }
     }
 
-    /* MODAL CREAR / EDITAR PRODUCTO */
     function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
+      const preview = document.getElementById('preview-foto');
 
       if (idProducto) {
         const p = productos.find(prod => prod.id == idProducto);
@@ -521,6 +569,14 @@
           document.getElementById('p-seleccion').checked = p.seleccion;
           document.getElementById('p-fecha').value = p.fecha || "";
           document.getElementById('p-gps').value = p.gps || "";
+          document.getElementById('p-foto-base64').value = p.foto || "";
+
+          if (p.foto) {
+            preview.src = p.foto;
+            preview.classList.remove('hidden');
+          } else {
+            preview.classList.add('hidden');
+          }
 
           if (p.gps && p.gps.includes(',')) {
             actualizarMapaIframe(p.gps);
@@ -530,6 +586,8 @@
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
         document.getElementById('form-nuevo-producto').reset();
         document.getElementById('p-id').value = "";
+        document.getElementById('p-foto-base64').value = "";
+        preview.classList.add('hidden');
         
         const ahora = new Date();
         ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
@@ -575,7 +633,8 @@
         precio: parseFloat(document.getElementById('p-precio').value) || 0,
         seleccion: document.getElementById('p-seleccion').checked,
         fecha: document.getElementById('p-fecha').value,
-        gps: document.getElementById('p-gps').value
+        gps: document.getElementById('p-gps').value,
+        foto: document.getElementById('p-foto-base64').value
       };
 
       try {
@@ -607,7 +666,6 @@
       }
     }
 
-    /* COMPARADOR DE PRECIOS */
     function calcularPrecio2() {
       const g1 = parseFloat(document.getElementById('g1').value) || 0;
       const p1 = parseFloat(document.getElementById('p1').value) || 0;
