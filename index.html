@@ -49,7 +49,6 @@
     .btn-pagar:hover { background-color: #2d9247; }
     .btn-guardar { width: 100%; padding: 10px; background-color: #ea4335; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-cancelar { width: 100%; padding: 10px; background-color: #666; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 8px; cursor: pointer; }
-    .btn-secundario { width: 100%; padding: 8px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; margin-top: 8px; cursor: pointer; }
     .btn-accion-rapida { background-color: #f1f3f4; border: 1px solid #dadce0; color: #3c4043; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
     
     .switch-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
@@ -70,7 +69,7 @@
 
   <div class="container">
     
-    <!-- VISTA 1: REGISTRO DE PRODUCTOS -->
+    <!-- VISTA 1: REGISTRO DE PRODUCTOS (LISTA) -->
     <div id="vista-total">
       <div class="sticky-header">
         <div class="card flex" style="margin-bottom: 8px;">
@@ -224,7 +223,7 @@
 
         if (resultado.result === "success") {
           productos = resultado.data;
-          renderizarLista();
+          filtrarProductos();
         } else {
           contenedor.innerHTML = '<p style="text-align:center; color:red;">Error al cargar productos.</p>';
         }
@@ -242,7 +241,7 @@
 
         if (resultado.result === "success") {
           historico = resultado.data;
-          renderizarHistorico();
+          filtrarHistorico();
         }
       } catch (error) {
         console.error("Error consultando Histórico:", error);
@@ -261,6 +260,7 @@
       if (vista === 'total') {
         document.getElementById('vista-total').classList.remove('hidden');
         document.getElementById('tab-total').classList.add('active');
+        filtrarProductos();
       } else if (vista === 'comparador') {
         document.getElementById('vista-comparador').classList.remove('hidden');
         document.getElementById('tab-comparador').classList.add('active');
@@ -271,15 +271,15 @@
       }
     }
 
-    /* CAMBIO VISUAL DE SELECCIÓN (NO ENVÍA A SHEETS HASTA PULSAR PAGAR) */
+    /* SELECCIÓN Y BÚSQUEDA */
     function toggleSeleccion(index) {
       productos[index].seleccion = !productos[index].seleccion;
-      renderizarLista();
+      filtrarProductos();
     }
 
     function cambiarSeleccionTodos(estado) {
       productos.forEach(p => p.seleccion = estado);
-      renderizarLista();
+      filtrarProductos();
     }
 
     function actualizarTotal() {
@@ -290,7 +290,111 @@
       document.getElementById('total-monto').innerText = `$${total.toFixed(2)}`;
     }
 
-    /* FUNCIÓN DEL BOTÓN PAGAR */
+    /* RENDERIZADO DE LISTA (SELECCIONADOS ARRIBA) */
+    function renderizarLista(lista = productos) {
+      const contenedor = document.getElementById('lista-productos');
+      contenedor.innerHTML = '';
+
+      if (!lista || lista.length === 0) {
+        contenedor.innerHTML = '<p style="text-align:center; color:#777;">No se encontraron productos.</p>';
+        actualizarTotal();
+        return;
+      }
+
+      // Ordenar: Seleccionados (Comprar === true) ARRIBA, no seleccionados ABAJO
+      const listaOrdenada = [...lista].sort((a, b) => {
+        if (a.seleccion === b.seleccion) return 0;
+        return a.seleccion ? -1 : 1;
+      });
+
+      listaOrdenada.forEach((p) => {
+        const indexReal = productos.findIndex(prod => prod.id === p.id);
+        const esSeleccionado = p.seleccion === true;
+
+        contenedor.innerHTML += `
+          <div class="card card-clickable flex" style="${esSeleccionado ? 'border-left: 5px solid #1a73e8; background-color: #f8fafd;' : ''}">
+            <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
+              <strong>${p.producto || p.nombre}</strong><br>
+              <small>Código: ${p.codigo}</small><br>
+              <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio || 0).toFixed(2)}</small>
+            </div>
+            <div onclick="event.stopPropagation();">
+              <label style="cursor: pointer; font-weight: bold; color: ${esSeleccionado ? '#1a73e8' : '#666'};">
+                <input type="checkbox" ${esSeleccionado ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
+              </label>
+            </div>
+          </div>
+        `;
+      });
+
+      actualizarTotal();
+    }
+
+    /* RENDERIZADO DE HISTÓRICO */
+    function renderizarHistorico(lista = historico) {
+      const contenedor = document.getElementById('lista-historico');
+      contenedor.innerHTML = '';
+
+      if (!lista || lista.length === 0) {
+        contenedor.innerHTML = '<p style="text-align:center; color:#777;">No se encontraron registros en el histórico.</p>';
+        return;
+      }
+
+      const ordenado = [...lista].reverse();
+
+      ordenado.forEach(h => {
+        const totalCompra = (parseFloat(h.cantidad || 1) * parseFloat(h.precio || 0)).toFixed(2);
+        const mapUrl = h.gps && String(h.gps).includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(h.gps)}` : null;
+
+        contenedor.innerHTML += `
+          <div class="card">
+            <div class="flex">
+              <strong>${h.producto || h.nombre || 'Producto'}</strong>
+              <span class="badge-compra">Comprado</span>
+            </div>
+            <div style="font-size: 13px; color: #555; margin-top: 5px;">
+              <strong>Código:</strong> ${h.codigo}<br>
+              <strong>Fecha:</strong> ${h.fecha || 'N/D'}<br>
+              <strong>Cantidad:</strong> ${h.cantidad} | <strong>Precio Unitario:</strong> $${parseFloat(h.precio || 0).toFixed(2)}<br>
+              <strong>Total pagado:</strong> <span style="color:#1a73e8; font-weight:bold;">$${totalCompra}</span><br>
+              <strong>Ubicación:</strong> ${h.gps || 'Sin GPS'} 
+              ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[Ver Mapa 📍]</a>` : ''}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    /* BÚSQUEDAS EN TIEMPO REAL */
+    function filtrarProductos() {
+      const texto = (document.getElementById('buscar').value || '').trim().toLowerCase();
+      if (!texto) {
+        renderizarLista(productos);
+        return;
+      }
+      const filtrados = productos.filter(p => {
+        const nombre = (p.producto || p.nombre || '').toString().toLowerCase();
+        const codigo = (p.codigo || '').toString().toLowerCase();
+        return nombre.includes(texto) || codigo.includes(texto);
+      });
+      renderizarLista(filtrados);
+    }
+
+    function filtrarHistorico() {
+      const texto = (document.getElementById('buscar-historico').value || '').trim().toLowerCase();
+      if (!texto) {
+        renderizarHistorico(historico);
+        return;
+      }
+      const filtrados = historico.filter(h => {
+        const nombre = (h.producto || h.nombre || '').toString().toLowerCase();
+        const codigo = (h.codigo || '').toString().toLowerCase();
+        return nombre.includes(texto) || codigo.includes(texto);
+      });
+      renderizarHistorico(filtrados);
+    }
+
+    /* BOTÓN PAGAR */
     async function procesarPago() {
       const seleccionados = productos.filter(p => p.seleccion === true);
 
@@ -331,7 +435,7 @@
 
         // Desmarcar todos tras pagar
         productos.forEach(p => p.seleccion = false);
-        renderizarLista();
+        filtrarProductos();
       } catch (error) {
         console.error("Error al registrar el pago:", error);
         alert("Ocurrió un error al intentar procesar el pago.");
@@ -341,92 +445,7 @@
       }
     }
 
-    function renderizarLista(lista = productos) {
-      const contenedor = document.getElementById('lista-productos');
-      contenedor.innerHTML = '';
-
-      if (lista.length === 0) {
-        contenedor.innerHTML = '<p style="text-align:center; color:#777;">No hay productos registrados.</p>';
-        actualizarTotal();
-        return;
-      }
-
-      lista.forEach((p) => {
-        const indexReal = productos.findIndex(prod => prod.id === p.id);
-        const esSeleccionado = p.seleccion === true;
-
-        contenedor.innerHTML += `
-          <div class="card card-clickable flex">
-            <div style="flex-grow: 1;" onclick="abrirModal(${p.id})">
-              <strong>${p.producto || p.nombre}</strong><br>
-              <small>Código: ${p.codigo}</small><br>
-              <small>Cant: ${p.cantidad} | Precio: $${parseFloat(p.precio).toFixed(2)}</small>
-            </div>
-            <div onclick="event.stopPropagation();">
-              <label style="cursor: pointer; font-weight: bold; color: ${esSeleccionado ? '#1a73e8' : '#666'};">
-                <input type="checkbox" ${esSeleccionado ? 'checked' : ''} onchange="toggleSeleccion(${indexReal})"> Comprar
-              </label>
-            </div>
-          </div>
-        `;
-      });
-
-      actualizarTotal();
-    }
-
-    function renderizarHistorico(lista = historico) {
-      const contenedor = document.getElementById('lista-historico');
-      contenedor.innerHTML = '';
-
-      if (!lista || lista.length === 0) {
-        contenedor.innerHTML = '<p style="text-align:center; color:#777;">No hay registros en el histórico.</p>';
-        return;
-      }
-
-      const ordenado = [...lista].reverse();
-
-      ordenado.forEach(h => {
-        const totalCompra = (parseFloat(h.cantidad || 1) * parseFloat(h.precio || 0)).toFixed(2);
-        const mapUrl = h.gps && h.gps.includes(',') ? `https://maps.google.com/?q=${encodeURIComponent(h.gps)}` : null;
-
-        contenedor.innerHTML += `
-          <div class="card">
-            <div class="flex">
-              <strong>${h.producto || h.nombre || 'Producto'}</strong>
-              <span class="badge-compra">Comprado</span>
-            </div>
-            <div style="font-size: 13px; color: #555; margin-top: 5px;">
-              <strong>Código:</strong> ${h.codigo}<br>
-              <strong>Fecha:</strong> ${h.fecha || 'N/D'}<br>
-              <strong>Cantidad:</strong> ${h.cantidad} | <strong>Precio Unitario:</strong> $${parseFloat(h.precio).toFixed(2)}<br>
-              <strong>Total pagado:</strong> <span style="color:#1a73e8; font-weight:bold;">$${totalCompra}</span><br>
-              <strong>Ubicación:</strong> ${h.gps || 'Sin GPS'} 
-              ${mapUrl ? `<a href="${mapUrl}" target="_blank" style="color:#1a73e8; font-weight:bold; text-decoration:none;">[Ver Mapa 📍]</a>` : ''}
-            </div>
-          </div>
-        `;
-      });
-    }
-
-    function filtrarProductos() {
-      const texto = document.getElementById('buscar').value.toLowerCase();
-      const filtrados = productos.filter(p => 
-        (p.producto && p.producto.toLowerCase().includes(texto)) || 
-        (p.codigo && p.codigo.toLowerCase().includes(texto))
-      );
-      renderizarLista(filtrados);
-    }
-
-    function filtrarHistorico() {
-      const texto = document.getElementById('buscar-historico').value.toLowerCase();
-      const filtrados = historico.filter(h => 
-        (h.producto && h.producto.toLowerCase().includes(texto)) || 
-        (h.codigo && h.codigo.toLowerCase().includes(texto))
-      );
-      renderizarHistorico(filtrados);
-    }
-
-    /* ESCÁNER */
+    /* ESCÁNER DE CÓDIGO DE BARRAS */
     function abrirEscaner(inputId) {
       targetInputId = inputId;
       document.getElementById('scanner-overlay').classList.remove('hidden');
@@ -486,6 +505,7 @@
       }
     }
 
+    /* MODAL CREAR / EDITAR PRODUCTO */
     function abrirModal(idProducto = null) {
       document.getElementById('modal-producto').classList.remove('hidden');
 
@@ -554,12 +574,13 @@
         productos.push(productoObj);
       }
 
-      renderizarLista();
+      filtrarProductos();
       cerrarModal();
       btnSubmit.innerText = "Guardar";
       btnSubmit.disabled = false;
     }
 
+    /* COMPARADOR DE PRECIOS */
     function calcularPrecio2() {
       const g1 = parseFloat(document.getElementById('g1').value) || 0;
       const p1 = parseFloat(document.getElementById('p1').value) || 0;
