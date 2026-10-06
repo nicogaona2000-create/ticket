@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control de Despensa GT</title>
-  <!-- Tailwind CSS para diseño moderno y responsive -->
+  <!-- Tailwind CSS para diseño móvel -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Librería gratuita para escáner de Código de Barras -->
+  <!-- Librería gratuita para Escáner de Código de Barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
@@ -25,10 +25,10 @@
       <div id="reader" class="overflow-hidden rounded-lg bg-gray-50 border border-dashed border-gray-300"></div>
 
       <div class="mt-3 flex gap-2">
-        <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-2 rounded-xl text-sm shadow hover:bg-blue-700">
+        <button id="btn-scan-start" onclick="iniciarEscaner()" class="flex-1 bg-blue-600 text-white font-medium py-2.5 rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
           📷 Abrir Escáner
         </button>
-        <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white font-medium py-2 rounded-xl text-sm hover:bg-gray-600">
+        <button id="btn-scan-stop" onclick="detenerEscaner()" class="hidden flex-1 bg-gray-500 text-white font-medium py-2.5 rounded-xl text-sm hover:bg-gray-600 active:scale-95 transition">
           ❌ Detener
         </button>
       </div>
@@ -39,7 +39,7 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 2: EVIDENCIA EN FOTO Y OCR -->
+    <!-- SECCIÓN 2: EVIDENCIA EN FOTO -->
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
       <h2 class="font-bold text-gray-800 text-lg mb-3">2. Foto de Evidencia</h2>
       
@@ -75,13 +75,13 @@
         </div>
       </div>
 
-      <!-- Módulo de Total a Pagar -->
+      <!-- Total a Pagar -->
       <div class="bg-blue-50 p-4 rounded-xl flex justify-between items-center border border-blue-100">
         <span class="text-sm font-bold text-blue-900">Total a Pagar:</span>
         <span id="total-pagar" class="text-2xl font-black text-blue-600">$0.00</span>
       </div>
 
-      <!-- Switch de selección -->
+      <!-- Switch Selección -->
       <div class="flex items-center justify-between pt-2">
         <span class="text-sm font-medium text-gray-700">¿Agregar a la cuenta actual?</span>
         <label class="relative inline-flex items-center cursor-pointer">
@@ -92,21 +92,21 @@
     </div>
 
     <!-- BOTÓN DE ENVÍO -->
-    <button onclick="guardarRegistro()" id="btn-guardar" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition text-base">
+    <button onclick="guardarRegistro()" id="btn-guardar" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition text-base active:scale-95">
       💾 Guardar en Despensa GT
     </button>
 
   </main>
 
   <script>
-    // ⚠️ REEMPLAZA ESTA URL CON LA QUE TE DIO APPS SCRIPT AL DESPLEGAR COMO WEB APP
+    // Tu URL desplegada de Google Apps Script
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxk0z9dHQ_VujZXCeLlzi-LxWzVY2c_mmnxyGKxGd9GmtyO4xNnSC8iZ9S2GTGI4vsGeg/exec";
 
     let html5QrCode = null;
     let fotoBase64 = "";
     let userGps = "";
 
-    // 1. Obtener Ubicación GPS al cargar la página
+    // 1. Obtener Geolocalización GPS
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => {
@@ -122,22 +122,117 @@
       document.getElementById('btn-scan-stop').classList.remove('hidden');
 
       html5QrCode = new Html5Qrcode("reader");
+
+      const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+      // Iniciar con preferencia por cámara trasera
       html5QrCode.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
+        config,
         (decodedText) => {
           document.getElementById('codigo').value = decodedText;
           detenerEscaner();
-          // Opcional: Sonido Beep al escanear
-          const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
-          audio.play();
+          try {
+            const audio = new Audio('https://media.geeksforgeeks.org/wp-content/uploads/20190529122812/beep.mp3');
+            audio.play();
+          } catch(e){}
         },
         (errorMessage) => {}
-      ).catch(err => alert("Error al abrir cámara: " + err));
+      ).catch(err => {
+        alert("Atención: Por favor permite el acceso a la cámara cuando el navegador lo solicite.\n\nDetalle: " + err);
+        detenerEscaner();
+      });
     }
 
     function detenerEscaner() {
       if (html5QrCode) {
         html5QrCode.stop().then(() => {
           html5QrCode.clear();
-          document.getElementById('btn-scan-
+          document.getElementById('btn-scan-start').classList.remove('hidden');
+          document.getElementById('btn-scan-stop').classList.add('hidden');
+        }).catch(err => {
+          document.getElementById('btn-scan-start').classList.remove('hidden');
+          document.getElementById('btn-scan-stop').classList.add('hidden');
+        });
+      }
+    }
+
+    // 3. Procesar Foto de Evidencia
+    function previsualizarYConvertirFoto(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          fotoBase64 = e.target.result;
+          document.getElementById('foto-preview').src = fotoBase64;
+          document.getElementById('preview-container').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // 4. Cálculo en tiempo real
+    function calcularTotal() {
+      const cant = parseFloat(document.getElementById('cantidad').value) || 0;
+      const prec = parseFloat(document.getElementById('precio').value) || 0;
+      const total = cant * prec;
+      document.getElementById('total-pagar').textContent = `$${total.toFixed(2)}`;
+    }
+
+    // 5. Guardar en Google Sheets (Despensa GT)
+    async function guardarRegistro() {
+      const producto = document.getElementById('producto').value.trim();
+      const precio = document.getElementById('precio').value;
+      const cantidad = document.getElementById('cantidad').value;
+
+      if (!producto || !precio) {
+        alert("Por favor ingresa al menos el nombre del producto y el precio.");
+        return;
+      }
+
+      const btnGuardar = document.getElementById('btn-guardar');
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = "⏳ Guardando...";
+
+      const payload = {
+        nombreProducto: producto,
+        codigoBarras: document.getElementById('codigo').value,
+        cantidad: parseFloat(cantidad),
+        precioUnitario: parseFloat(precio),
+        agregarACuenta: document.getElementById('seleccion').checked,
+        gpsLocation: userGps,
+        fotoBase64: fotoBase64
+      };
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        alert("✅ Producto guardado correctamente en tu hoja Despensa GT");
+        limpiarFormulario();
+
+      } catch (error) {
+        alert("❌ Error al guardar: " + error.message);
+      } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = "💾 Guardar en Despensa GT";
+      }
+    }
+
+    function limpiarFormulario() {
+      document.getElementById('codigo').value = '';
+      document.getElementById('producto').value = '';
+      document.getElementById('cantidad').value = '1';
+      document.getElementById('precio').value = '';
+      document.getElementById('foto-input').value = '';
+      document.getElementById('preview-container').classList.add('hidden');
+      document.getElementById('total-pagar').textContent = '$0.00';
+      fotoBase64 = '';
+    }
+  </script>
+</body>
+</html>
