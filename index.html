@@ -211,7 +211,7 @@
   </nav>
 
   <script>
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbxm8FUrsJzEmSknU6ame89qn3gFaN5hF-bI4lvFhkhwgDhoF9Qb2N0bv0dZ6Nmxvj8f5A/exec";
+    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbwvhnJ50Nk0Vm81YM3Q9X0isOwr2SbrSXNNm9fN-KB6PAoa__OmrfYds9ggH25OzqHTGA/exec";
 
     let productos = [];
     let historico = [];
@@ -450,7 +450,6 @@
       }
     }
 
-    /* CAPTURA Y COMPRESIÓN DE FOTO */
     function procesarFoto(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -460,7 +459,7 @@
         const img = new Image();
         img.onload = function() {
           const canvas = document.createElement('canvas');
-          const maxDim = 400; // Redimensionar máximo a 400px
+          const maxDim = 400;
           let width = img.width;
           let height = img.height;
 
@@ -481,7 +480,6 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Compresión JPEG a 0.6
           const base64Data = canvas.toDataURL('image/jpeg', 0.6);
           document.getElementById('p-foto-base64').value = base64Data;
           
@@ -619,16 +617,25 @@
     async function guardarProducto(event) {
       event.preventDefault();
 
+      const idExistente = document.getElementById('p-id').value;
+      const codigoIngresado = document.getElementById('p-codigo').value.trim();
+
+      // VALIDACIÓN: Verificar si el código ya existe al agregar un producto NUEVO o al cambiar el código
+      const coincideCodigo = productos.find(p => String(p.codigo).trim() === codigoIngresado && String(p.id) !== String(idExistente));
+
+      if (coincideCodigo) {
+        alert(`⚠️ El producto ya está capturado:\n\nNombre: ${coincideCodigo.producto || coincideCodigo.nombre}\nCódigo: ${coincideCodigo.codigo}\n\nPor favor, busca el producto existente en la lista para editarlo o cambia el código.`);
+        return;
+      }
+
       const btnSubmit = document.getElementById('btn-submit');
       btnSubmit.innerText = "Guardando...";
       btnSubmit.disabled = true;
 
-      const idExistente = document.getElementById('p-id').value;
-
       const productoObj = {
         id: idExistente ? parseInt(idExistente) : Date.now(),
         producto: document.getElementById('p-nombre').value,
-        codigo: document.getElementById('p-codigo').value,
+        codigo: codigoIngresado,
         cantidad: parseFloat(document.getElementById('p-cantidad').value) || 1,
         precio: parseFloat(document.getElementById('p-precio').value) || 0,
         seleccion: document.getElementById('p-seleccion').checked,
