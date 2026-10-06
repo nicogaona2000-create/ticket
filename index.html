@@ -201,7 +201,7 @@
   </nav>
 
   <script>
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbyMc1BoDsFk2H2wWJcL6-VGT22y_Iwo-b9Xm0neVIej_lgb-HwTqHDwGzZQBgCbQL1G5A/exec";
+    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbyW_Iy9MkEOOTWgePEYvYSSqrQ0akGFWw0bf2KGWfo77MMNQL3J6KNbc_6aALaAI7UZjA/exec";
 
     let productos = [];
     let historico = [];
@@ -521,6 +521,10 @@
           document.getElementById('p-seleccion').checked = p.seleccion;
           document.getElementById('p-fecha').value = p.fecha || "";
           document.getElementById('p-gps').value = p.gps || "";
+
+          if (p.gps && p.gps.includes(',')) {
+            actualizarMapaIframe(p.gps);
+          }
         }
       } else {
         document.getElementById('modal-titulo').innerText = "Registro de Producto";
@@ -534,12 +538,19 @@
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              document.getElementById('p-gps').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+              const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+              document.getElementById('p-gps').value = coords;
+              actualizarMapaIframe(coords);
             },
             () => { document.getElementById('p-gps').value = "Ubicación no disponible"; }
           );
         }
       }
+    }
+
+    function actualizarMapaIframe(coords) {
+      const iframe = document.getElementById('iframe-mapa');
+      iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(coords)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
     }
 
     function cerrarModal() {
@@ -567,17 +578,33 @@
         gps: document.getElementById('p-gps').value
       };
 
-      if (idExistente) {
-        const index = productos.findIndex(p => p.id == idExistente);
-        if (index !== -1) productos[index] = productoObj;
-      } else {
-        productos.push(productoObj);
-      }
+      try {
+        await fetch(URL_GOOGLE_SCRIPT, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "guardarProducto",
+            producto: productoObj
+          })
+        });
 
-      filtrarProductos();
-      cerrarModal();
-      btnSubmit.innerText = "Guardar";
-      btnSubmit.disabled = false;
+        if (idExistente) {
+          const index = productos.findIndex(p => p.id == idExistente);
+          if (index !== -1) productos[index] = productoObj;
+        } else {
+          productos.push(productoObj);
+        }
+
+        filtrarProductos();
+        cerrarModal();
+      } catch (error) {
+        console.error("Error al guardar el producto:", error);
+        alert("Hubo un error guardando el producto en Google Sheets.");
+      } finally {
+        btnSubmit.innerText = "Guardar";
+        btnSubmit.disabled = false;
+      }
     }
 
     /* COMPARADOR DE PRECIOS */
